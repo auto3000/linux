@@ -135,7 +135,7 @@
 				bias-disable;
 			};
 		};
-
+/*
 		pwm_ao_a_6_pins: pwm_ao_a_6 {
 			mux {
 				groups = "pwm_ao_a_6";
@@ -143,7 +143,7 @@
 				bias-disable;
 			};
 		};
-
+*/
 		pwm_ao_a_12_pins: pwm_ao_a_12 {
 			mux {
 				groups = "pwm_ao_a_12";
@@ -208,6 +208,14 @@
 			};
 		};
 
+		i2s_in_ch01_ao_pins: i2s_in_ch01_ao {
+			mux {
+				groups = "i2s_in_ch01_ao";
+				function = "i2s_out_ao";
+				bias-disable;
+			};
+		};
+/*
 		spdif_out_ao_6_pins: spdif_out_ao_6 {
 			mux {
 				groups = "spdif_out_ao_6";
@@ -215,7 +223,7 @@
 			};
 		};
 
-		spdif_out_ao_13_pins: spdif_out_ao_13 {
+*/		spdif_out_ao_13_pins: spdif_out_ao_13 {
 			mux {
 				groups = "spdif_out_ao_13";
 				function = "spdif_out_ao";
@@ -330,6 +338,7 @@
 		 <&clkc CLKID_CLK81>,
 		 <&clkc CLKID_GCLK_VENCI_INT0>;
 	clock-names = "isfr", "iahb", "venci";
+	#sound-dai-cells = <0>; 
 };
 
 &sysctrl {
@@ -722,6 +731,28 @@
 			};
 		};
 	};
+};
+
+&aiu {
+	clocks = <&clkc CLKID_AIU_GLUE>,
+		<&clkc CLKID_I2S_OUT>,
+		<&clkc CLKID_AOCLK_GATE>,
+		<&clkc CLKID_CTS_AMCLK>,
+		<&clkc CLKID_MIXER_IFACE>,
+		<&clkc CLKID_IEC958>,
+		<&clkc CLKID_IEC958_GATE>,
+		<&clkc CLKID_CTS_MCLK_I958>,
+		<&clkc CLKID_CTS_I958>;
+	clock-names = "pclk",
+		     "i2s_pclk",
+		     "i2s_aoclk",
+		     "i2s_mclk",
+		     "i2s_mixer",
+		     "spdif_pclk",
+		     "spdif_aoclk",
+		     "spdif_mclk",
+		     "spdif_mclk_sel";
+	resets = <&reset RESET_AIU>;
 };
 
 &pwrc_vpu {

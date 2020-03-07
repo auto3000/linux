@@ -9,6 +9,7 @@
 
 #include "meson-gxbb.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/sound/meson-aiu.h>
 
 / {
 	compatible = "hardkernel,odroid-c2", "amlogic,meson-gxbb";
@@ -36,15 +37,8 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 
-		/*
-		 * signal name from schematics: PWREN
-		 */
 		gpio = <&gpio_ao GPIOAO_5 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		/*
-		 * signal name from schematics: USB_POWER
-		 */
-		vin-supply = <&p5v0>;
 	};
 
 	leds {
@@ -57,38 +51,18 @@
 		};
 	};
 
-	p5v0: regulator-p5v0 {
-		compatible = "regulator-fixed";
-
-		regulator-name = "P5V0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		regulator-always-on;
-	};
-
-	hdmi_p5v0: regulator-hdmi_p5v0 {
-		compatible = "regulator-fixed";
-		regulator-name = "HDMI_P5V0";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		/* AP2331SA-7 */
-		vin-supply = <&p5v0>;
-	};
-
 	tflash_vdd: regulator-tflash_vdd {
+		/*
+		 * signal name from schematics: TFLASH_VDD_EN
+		 */
 		compatible = "regulator-fixed";
 
 		regulator-name = "TFLASH_VDD";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 
-		/*
-		 * signal name from schematics: TFLASH_VDD_EN
-		 */
 		gpio = <&gpio GPIOY_12 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		/* U16 RT9179GB */
-		vin-supply = <&vddio_ao3v3>;
 	};
 
 	tf_io: gpio-regulator-tf_io {
@@ -104,10 +78,8 @@
 		gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_HIGH>;
 		gpios-states = <0>;
 
-		states = <3300000 0>,
-			 <1800000 1>;
-		/* U12/U13 RT9179GB */
-		vin-supply = <&vddio_ao3v3>;
+		states = <3300000 0
+			  1800000 1>;
 	};
 
 	vcc1v8: regulator-vcc1v8 {
@@ -115,9 +87,6 @@
 		regulator-name = "VCC1V8";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-		/* U18 RT9179GB */
-		vin-supply = <&vddio_ao3v3>;
 	};
 
 	vcc3v3: regulator-vcc3v3 {
@@ -125,36 +94,6 @@
 		regulator-name = "VCC3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-	};
-
-	vddio_ao1v8: regulator-vddio-ao1v8 {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDIO_AO1V8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-		/* U17 RT9179GB */
-		vin-supply = <&p5v0>;
-	};
-
-	vddio_ao3v3: regulator-vddio-ao3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDIO_AO3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-		/* U11 MP2161GJ-C499 */
-		vin-supply = <&p5v0>;
-	};
-
-	ddr3_1v5: regulator-ddr3_1v5 {
-		compatible = "regulator-fixed";
-		regulator-name = "DDR3_1V5";
-		regulator-min-microvolt = <1500000>;
-		regulator-max-microvolt = <1500000>;
-		regulator-always-on;
-		/* U15 MP2161GJ-C499 */
-		vin-supply = <&p5v0>;
 	};
 
 	emmc_pwrseq: emmc-pwrseq {
@@ -172,6 +111,79 @@
 			};
 		};
 	};
+//github.com/LibreELEC/linux-amlogic/blob/amlogic-3.14.y/arch/arm64/boot/dts/meson64-odroidc2.dts
+//github.com/hardkernel/linux/blob/odroidc2-v3.16.y/arch/arm64/boot/dts/meson64_odroidc2.dts
+	sound {
+		compatible = "amlogic,gx-sound-card";
+	        model = "GXBB ODROID-C2 S905";
+		assigned-clocks = <&clkc CLKID_MPLL2>,
+				  <&clkc CLKID_MPLL0>,
+				  <&clkc CLKID_MPLL1>;
+		assigned-clock-parents = <0>, <0>, <0>;
+		assigned-clock-rates = <294912000>,
+				       <270950400>,
+				       <393216000>;
+		status = "okay";
+/*
+		gpios = <&gpio GPIOX_3 0>,	//LOWA
+			<&gpio GPIOX_1 1>,	//MIDA
+			<&gpio GPIOX_7 0>,	//LOWB
+			<&gpio GPIOX_4 1>,	//MIDB
+			<&gpio GPIOX_8 0>,	//MICA
+			<&gpio GPIOX_5 0>,	//INSTA
+			<&gpio GPIOX_19 0>,	//MICB
+			<&gpio GPIOX_11 0>,	//INSTB
+			<&gpio GPIOY_3 0>,	//TBPASSA
+			<&gpio GPIOY_7 0>,	//TBPASSB
+			<&gpio GPIOX_0 0>,	//HP_CLK
+			<&gpio GPIOY_8 1>,	//HP_ENA
+			<&gpio GPIOX_6 0>;	//HP_UP_DN
+*/
+		dai-link-0 {
+			sound-dai = <&aiu AIU_CPU CPU_I2S_FIFO>;
+		};
+		dai-link-1 {
+			sound-dai = <&aiu AIU_CPU CPU_I2S_ENCODER>;
+			dai-format = "i2s";
+			mclk-fs = <256>;
+			bitclock-master = <&aiu>;
+			frame-master = <&aiu>;
+			codec-0 {
+				sound-dai = <&aiu AIU_HDMI CTRL_I2S>;
+			};
+		};
+		dai-link-2 {
+			sound-dai = <&aiu AIU_HDMI CTRL_OUT>;
+			codec-0 {
+				sound-dai = <&hdmi_tx>;
+			};
+		};
+	};
+};
+&i2c_A {
+	codec0: cs4245@4c {
+		compatible = "cirrus,cs4245";
+		#sound-dai-cells = <0>;
+		reg = <0x4c>;
+		reset-gpios = <&gpio GPIOX_21 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <10000>;
+		reset-active-low;
+		default-state = "off";
+		status = "okay";
+	};
+};
+/*
+	i2s_in_ch01_ao_pins	=	SDOUT	= GPIOAO_6
+	i2s_am_clk_pins 	=	MCLK	= GPIOAO_8
+	i2s_out_ao_clk_pins 	=	SCLK	= GPIOAO_9
+	i2s_out_lr_clk_pins	=	LRCK	= GPIOAO_10
+	i2s_out_ch01_ao_pins	=	SDIN	= GPIOAO_11
+*/
+&aiu {
+	pinctrl-0 = <&i2s_am_clk_pins>, <&i2s_out_ao_clk_pins>,
+		    <&i2s_out_lr_clk_pins>, <&i2s_out_ch01_ao_pins>, <&i2s_in_ch01_ao_pins>;
+	pinctrl-names = "default";
+	status = "okay";
 };
 
 &cec_AO {
@@ -188,6 +200,10 @@
 	phy-handle = <&eth_phy0>;
 	phy-mode = "rgmii";
 
+	snps,reset-gpio = <&gpio GPIOZ_14 0>;
+	snps,reset-delays-us = <0 10000 1000000>;
+	snps,reset-active-low;
+
 	amlogic,tx-delay-ns = <2>;
 
 	mdio {
@@ -198,11 +214,6 @@
 		eth_phy0: ethernet-phy@0 {
 			/* Realtek RTL8211F (0x001cc916) */
 			reg = <0>;
-
-			reset-assert-us = <10000>;
-			reset-deassert-us = <30000>;
-			reset-gpios = <&gpio GPIOZ_14 GPIO_ACTIVE_LOW>;
-
 			interrupt-parent = <&gpio_intc>;
 			/* MAC_INTR on GPIOZ_15 */
 			interrupts = <29 IRQ_TYPE_LEVEL_LOW>;
@@ -224,12 +235,10 @@
 		line-name = "usb-hub-reset";
 	};
 };
-
 &hdmi_tx {
 	status = "okay";
 	pinctrl-0 = <&hdmi_hpd_pins>, <&hdmi_i2c_pins>;
 	pinctrl-names = "default";
-	hdmi-supply = <&hdmi_p5v0>;
 };
 
 &hdmi_tx_tmds_port {
@@ -248,6 +257,7 @@
 	status = "okay";
 	pinctrl-0 = <&remote_input_ao_pins>;
 	pinctrl-names = "default";
+	linux,rc-map-name = "rc-odroid";
 };
 
 &gpio_ao {
@@ -319,11 +329,8 @@
 
 	bus-width = <4>;
 	cap-sd-highspeed;
-	sd-uhs-sdr12;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
-	sd-uhs-ddr50;
-	max-frequency = <100000000>;
+	// 100000000 => 50000000 changed on meson-gxl-s905x-libretech-cc.dts
+	max-frequency = <50000000>;  
 	disable-wp;
 
 	cd-gpios = <&gpio CARD_6 GPIO_ACTIVE_LOW>;
@@ -340,7 +347,7 @@
 	pinctrl-names = "default", "clk-gate";
 
 	bus-width = <8>;
-	max-frequency = <200000000>;
+	max-frequency = <100000000>;  	//200000000 on meson-gxl-s905x-libretech-cc.dts
 	non-removable;
 	disable-wp;
 	cap-mmc-highspeed;
@@ -359,7 +366,7 @@
 };
 
 &usb0_phy {
-	status = "disabled";
+	status = "okay";
 	phy-supply = <&usb_otg_pwr>;
 };
 
@@ -369,7 +376,7 @@
 };
 
 &usb0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &usb1 {

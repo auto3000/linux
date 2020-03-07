@@ -201,3 +201,4 @@ int aiu_acodec_ctrl_register_component(struct device *dev)
 					  aiu_acodec_ctrl_dai_drv,
 					  ARRAY_SIZE(aiu_acodec_ctrl_dai_drv));
 }
+

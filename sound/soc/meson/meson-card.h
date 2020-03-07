@@ -17,9 +17,7 @@ struct snd_pcm_hw_params;
 #define DT_PREFIX "amlogic,"
 
 struct meson_card_match_data {
-	int (*add_link)(struct snd_soc_card *card,
-			struct device_node *node,
-			int *index);
+	int (*add_link)(struct snd_soc_card *, struct device_node *, int *);
 };
 
 struct meson_card {

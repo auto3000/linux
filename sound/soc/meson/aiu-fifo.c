@@ -221,3 +221,62 @@ int aiu_fifo_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+/*
+int aiu_fifo_component_probe(struct snd_soc_component *component)
+{
+	struct device *dev = component->dev;
+	struct regmap *map;
+
+	map = syscon_node_to_regmap(dev->parent->of_node);
+	if (IS_ERR(map)) {
+		dev_err(dev, "Could not get regmap\n");
+		return PTR_ERR(map);
+	}
+
+	snd_soc_component_init_regmap(component, map);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(aiu_fifo_component_probe);
+
+int aiu_fifo_probe(struct platform_device *pdev)
+{
+	const struct aiu_fifo_match_data *data;
+	struct device *dev = &pdev->dev;
+	struct aiu_fifo *fifo;
+
+	data = of_device_get_match_data(dev);
+	if (!data) {
+		dev_err(dev, "failed to match device\n");
+		return -ENODEV;
+	}
+
+	fifo = devm_kzalloc(dev, sizeof(*fifo), GFP_KERNEL);
+	if (!fifo)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, fifo);
+	fifo = data->hw;
+
+	fifo->pclk = devm_clk_get(dev, NULL);
+	if (IS_ERR(fifo->pclk)) {
+		if (PTR_ERR(fifo->pclk) != -EPROBE_DEFER)
+			dev_err(dev, "failed to get pclk: %ld\n",
+				PTR_ERR(fifo->pclk));
+		return PTR_ERR(fifo->pclk);
+	}
+
+	fifo->irq = platform_get_irq(pdev, 0);
+	if (fifo->irq <= 0) {
+		dev_err(dev, "Can't get irq\n");
+		return fifo->irq;
+	}
+
+	return devm_snd_soc_register_component(dev, data->component_drv,
+					       data->dai_drv, 1);
+}
+EXPORT_SYMBOL_GPL(aiu_fifo_probe);
+
+MODULE_DESCRIPTION("Amlogic AIU FIFO driver");
+MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
+MODULE_LICENSE("GPL v2");
+*/

@@ -10,7 +10,7 @@
 
 #include "meson-codec-glue.h"
 
-static struct snd_soc_dapm_widget *
+struct snd_soc_dapm_widget *
 meson_codec_glue_get_input(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_path *p = NULL;
@@ -35,12 +35,14 @@ meson_codec_glue_get_input(struct snd_soc_dapm_widget *w)
 
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(meson_codec_glue_get_input);
 
-static void meson_codec_glue_input_set_data(struct snd_soc_dai *dai,
-					    struct meson_codec_glue_input *data)
+void meson_codec_glue_input_set_data(struct snd_soc_dai *dai,
+				     struct meson_codec_glue_input *data)
 {
 	dai->playback_dma_data = data;
 }
+EXPORT_SYMBOL_GPL(meson_codec_glue_input_set_data);
 
 struct meson_codec_glue_input *
 meson_codec_glue_input_get_data(struct snd_soc_dai *dai)
@@ -49,7 +51,7 @@ meson_codec_glue_input_get_data(struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_get_data);
 
-static struct meson_codec_glue_input *
+struct meson_codec_glue_input *
 meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_widget *in =
@@ -63,6 +65,7 @@ meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
 
 	return meson_codec_glue_input_get_data(dai);
 }
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_get_input_data);
 
 int meson_codec_glue_input_hw_params(struct snd_pcm_substream *substream,
 				     struct snd_pcm_hw_params *params,

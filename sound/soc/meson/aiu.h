@@ -11,7 +11,9 @@ struct clk;
 struct clk_bulk_data;
 struct device;
 struct of_phandle_args;
+//struct snd_soc_component_driver;
 struct snd_soc_dai;
+//struct snd_soc_dai_driver;
 struct snd_soc_dai_ops;
 
 enum aiu_clk_ids {
@@ -42,7 +44,13 @@ int aiu_of_xlate_dai_name(struct snd_soc_component *component,
 			  struct of_phandle_args *args,
 			  const char **dai_name,
 			  unsigned int component_id);
-
+/*
+int aiu_add_component(struct device *dev,
+		      const struct snd_soc_component_driver *component_driver,
+		      struct snd_soc_dai_driver *dai_drv,
+		      int num_dai,
+		      const char *debugfs_prefix);
+*/
 int aiu_hdmi_ctrl_register_component(struct device *dev);
 int aiu_acodec_ctrl_register_component(struct device *dev);
 
@@ -69,7 +77,7 @@ extern const struct snd_soc_dai_ops aiu_encoder_spdif_dai_ops;
 #define AIU_CLK_CTRL_MORE		0x064
 #define AIU_CODEC_DAC_LRCLK_CTRL	0x0a0
 #define AIU_HDMI_CLK_DATA_CTRL		0x0a8
-#define AIU_ACODEC_CTRL			0x0b0
+#define AIU_ACODEC_CTRL			0x0ac	//00b0
 #define AIU_958_CHSTAT_R0		0x0c0
 #define AIU_958_CHSTAT_R1		0x0c4
 #define AIU_MEM_I2S_START		0x180
@@ -81,3 +89,5 @@ extern const struct snd_soc_dai_ops aiu_encoder_spdif_dai_ops;
 #define AIU_MEM_IEC958_BUF_CNTL		0x1fc
 
 #endif /* _MESON_AIU_H */
+
+

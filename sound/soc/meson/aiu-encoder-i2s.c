@@ -315,3 +315,94 @@ const struct snd_soc_dai_ops aiu_encoder_i2s_dai_ops = {
 	.shutdown	= aiu_encoder_i2s_shutdown,
 };
 
+/*
+static struct snd_soc_dai_driver aiu_encoder_i2s_dai_drv = {
+	.name = "AIU I2S ENCODER",
+	.playback = {
+		.stream_name = "Playback",
+		.channels_min = 2,
+		.channels_max = 8,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+			    SNDRV_PCM_FMTBIT_S20_LE |
+			    SNDRV_PCM_FMTBIT_S24_LE |
+			    SNDRV_PCM_FMTBIT_S32_LE)
+	},
+	.ops = &aiu_encoder_i2s_dai_ops,
+};
+
+int aiu_encoder_i2s_component_probe(struct snd_soc_component *component)
+{
+	struct device *dev = component->dev;
+	struct regmap *map;
+
+	map = syscon_node_to_regmap(dev->parent->of_node);
+	if (IS_ERR(map)) {
+		dev_err(dev, "Could not get regmap\n");
+		return PTR_ERR(map);
+	}
+
+	snd_soc_component_init_regmap(component, map);
+
+	return 0;
+}
+
+static const struct snd_soc_component_driver aiu_encoder_i2s_component = {
+	.probe 			= aiu_encoder_i2s_component_probe,
+};
+
+static int aiu_encoder_i2s_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct aiu_encoder_i2s *encoder;
+
+	encoder = devm_kzalloc(dev, sizeof(*encoder), GFP_KERNEL);
+	if (!encoder)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, encoder);
+
+	encoder->pclk = devm_clk_get(dev, "pclk");
+	if (IS_ERR(encoder->pclk)) {
+		if (PTR_ERR(encoder->pclk) != -EPROBE_DEFER)
+			dev_err(dev,
+				"Can't get the peripheral clock\n");
+		return PTR_ERR(encoder->pclk);
+	}
+
+	encoder->aoclk = devm_clk_get(dev, "aoclk");
+	if (IS_ERR(encoder->aoclk)) {
+		if (PTR_ERR(encoder->aoclk) != -EPROBE_DEFER)
+			dev_err(dev, "Can't get the ao clock\n");
+		return PTR_ERR(encoder->aoclk);
+	}
+
+	encoder->mclk = devm_clk_get(dev, "mclk");
+	if (IS_ERR(encoder->mclk)) {
+		if (PTR_ERR(encoder->mclk) != -EPROBE_DEFER)
+			dev_err(dev, "Can't get the i2s m\n");
+		return PTR_ERR(encoder->mclk);
+	}
+
+	return devm_snd_soc_register_component(dev, &aiu_encoder_i2s_component,
+					       &aiu_encoder_i2s_dai_drv, 1);
+}
+
+static const struct of_device_id aiu_encoder_i2s_of_match[] = {
+	{ .compatible = "amlogic,aiu-i2s-encode", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, aiu_encoder_i2s_of_match);
+
+static struct platform_driver aiu_encoder_i2s_pdrv = {
+	.probe = aiu_encoder_i2s_probe,
+	.driver = {
+		.name = "meson-aiu-i2s-encode",
+		.of_match_table = aiu_encoder_i2s_of_match,
+	},
+};
+module_platform_driver(aiu_encoder_i2s_pdrv);
+
+MODULE_DESCRIPTION("Meson AIU Encoder I2S Driver");
+MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
+MODULE_LICENSE("GPL v2");
+*/

@@ -73,19 +73,25 @@ int meson_card_parse_dai(struct snd_soc_card *card,
 	struct of_phandle_args args;
 	int ret;
 
-	if (!dai_name || !dai_of_node || !node)
+	if (!dai_name || !dai_of_node || !node) {
+		printk("meson_card_parse_dai: dai_name=%s, dai_of_node=%pr, node=%pr", 
+			*dai_name, dai_of_node, node);
 		return -EINVAL;
-
+	}
+	printk("meson_card_parse_dai: dai_name=%s, dai_of_node=%pr, node=%pr", 
+		*dai_name, dai_of_node, node);
 	ret = of_parse_phandle_with_args(node, "sound-dai",
 					 "#sound-dai-cells", 0, &args);
+	printk("meson_card_parse_dai: ret=%d defer=%d", ret, EPROBE_DEFER);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(card->dev, "can't parse dai %d\n", ret);
 		return ret;
 	}
 	*dai_of_node = args.np;
-
-	return snd_soc_get_dai_name(&args, dai_name);
+	ret = snd_soc_get_dai_name(&args, dai_name);
+	printk("meson_card_parse_dai: %s ret=%d", *dai_name, ret);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(meson_card_parse_dai);
 
@@ -101,9 +107,10 @@ static int meson_card_set_link_name(struct snd_soc_card *card,
 
 	link->name = name;
 	link->stream_name = name;
-
+	printk("meson_card_set_link_name: %s", name);
 	return 0;
 }
+
 
 unsigned int meson_card_parse_daifmt(struct device_node *node,
 				     struct device_node *cpu_node)
@@ -124,7 +131,7 @@ unsigned int meson_card_parse_daifmt(struct device_node *node,
 		daifmt |= (!framemaster || framemaster == cpu_node) ?
 			SND_SOC_DAIFMT_CBM_CFS : SND_SOC_DAIFMT_CBM_CFM;
 	}
-
+	printk("meson_card_parse_daifmt: daifmt=%d BM_FM=1, BS_FM=2, BM_FS=3, BS_FS=4", daifmt);
 	of_node_put(bitclkmaster);
 	of_node_put(framemaster);
 
@@ -152,6 +159,7 @@ int meson_card_set_be_link(struct snd_soc_card *card,
 	}
 
 	codec = devm_kcalloc(card->dev, num_codecs, sizeof(*codec), GFP_KERNEL);
+	printk("gx card be link codec: numcodecs=%d, name=%s", num_codecs, codec->name);
 	if (!codec)
 		return -ENOMEM;
 
@@ -165,14 +173,13 @@ int meson_card_set_be_link(struct snd_soc_card *card,
 			of_node_put(np);
 			return ret;
 		}
-
 		codec++;
 	}
 
 	ret = meson_card_set_link_name(card, link, node, "be");
 	if (ret)
 		dev_err(card->dev, "error setting %pOFn link name\n", np);
-
+	printk("gx card be link codec: %s", codec->name);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(meson_card_set_be_link);

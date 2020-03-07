@@ -70,7 +70,27 @@ int aiu_of_xlate_dai_name(struct snd_soc_component *component,
 
 	return 0;
 }
+/*
+int aiu_add_component(struct device *dev,
+		      const struct snd_soc_component_driver *component_driver,
+		      struct snd_soc_dai_driver *dai_drv,
+		      int num_dai,
+		      const char *debugfs_prefix)
+{
+	struct snd_soc_component *component;
 
+	component = devm_kzalloc(dev, sizeof(*component), GFP_KERNEL);
+	if (!component)
+		return -ENOMEM;
+
+#ifdef CONFIG_DEBUG_FS
+	component->debugfs_prefix = debugfs_prefix;
+#endif
+
+	return snd_soc_add_component(dev, component, component_driver,
+				     dai_drv, num_dai);
+}
+*/
 static int aiu_cpu_of_xlate_dai_name(struct snd_soc_component *component,
 				     struct of_phandle_args *args,
 				     const char **dai_name)
@@ -94,7 +114,7 @@ static void aiu_cpu_component_remove(struct snd_soc_component *component)
 }
 
 static const struct snd_soc_component_driver aiu_cpu_component = {
-	.name			= "AIU CPU",
+	.name			= "AIU_CPU",
 	.dapm_widgets		= aiu_cpu_dapm_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(aiu_cpu_dapm_widgets),
 	.dapm_routes		= aiu_cpu_dapm_routes,
@@ -294,12 +314,14 @@ static int aiu_probe(struct platform_device *pdev)
 	}
 
 	aiu->i2s.irq = platform_get_irq_byname(pdev, "i2s");
-	if (aiu->i2s.irq < 0)
+	if (aiu->i2s.irq < 0) {
 		return aiu->i2s.irq;
+	}
 
 	aiu->spdif.irq = platform_get_irq_byname(pdev, "spdif");
-	if (aiu->spdif.irq < 0)
+	if (aiu->spdif.irq < 0) {
 		return aiu->spdif.irq;
+	}
 
 	ret = aiu_clk_get(dev);
 	if (ret)
@@ -310,10 +332,10 @@ static int aiu_probe(struct platform_device *pdev)
 					 aiu_cpu_dai_drv,
 					 ARRAY_SIZE(aiu_cpu_dai_drv));
 	if (ret) {
-		dev_err(dev, "Failed to register cpu component\n");
+ 		dev_err(dev, "Failed to register cpu component\n");
 		return ret;
 	}
-
+ 
 	/* Register the hdmi codec control component */
 	ret = aiu_hdmi_ctrl_register_component(dev);
 	if (ret) {
@@ -321,19 +343,10 @@ static int aiu_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* Register the internal dac control component on gxl */
-	if (of_device_is_compatible(dev->of_node, "amlogic,aiu-gxl")) {
-		ret = aiu_acodec_ctrl_register_component(dev);
-		if (ret) {
-			dev_err(dev,
-			    "Failed to register acodec control component\n");
-			goto err;
-		}
-	}
-
 	return 0;
 err:
 	snd_soc_unregister_component(dev);
+
 	return ret;
 }
 
@@ -364,3 +377,4 @@ module_platform_driver(aiu_pdrv);
 MODULE_DESCRIPTION("Meson AIU Driver");
 MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
 MODULE_LICENSE("GPL v2");
+

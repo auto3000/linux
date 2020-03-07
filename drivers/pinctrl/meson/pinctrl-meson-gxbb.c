@@ -276,6 +276,7 @@ static const unsigned int remote_input_ao_pins[] = { GPIOAO_7 };
 
 static const unsigned int pwm_ao_a_3_pins[]	= { GPIOAO_3 };
 static const unsigned int pwm_ao_a_6_pins[]	= { GPIOAO_6 };
+static const unsigned int i2s_in_ch01_ao_pins[]	= { GPIOAO_6 };
 static const unsigned int pwm_ao_a_12_pins[]	= { GPIOAO_12 };
 static const unsigned int pwm_ao_b_pins[]	= { GPIOAO_13 };
 
@@ -561,6 +562,7 @@ static struct meson_pmx_group meson_gxbb_aobus_groups[] = {
 	GROUP(spdif_out_ao_13,	0,	4),
 	GROUP(ao_cec,           0,      15),
 	GROUP(ee_cec,           0,      14),
+	GROUP(i2s_in_ch01_ao,	0,	13),	// dummy
 
 	/* test n pin */
 	GROUP(i2s_out_ch67_ao,	1,	2),
@@ -754,7 +756,7 @@ static const char * const pwm_ao_b_groups[] = {
 static const char * const i2s_out_ao_groups[] = {
 	"i2s_am_clk", "i2s_out_ao_clk", "i2s_out_lr_clk",
 	"i2s_out_ch01_ao", "i2s_out_ch23_ao", "i2s_out_ch45_ao",
-	"i2s_out_ch67_ao",
+	"i2s_out_ch67_ao", "i2s_in_ch01_ao",
 };
 
 static const char * const spdif_out_ao_groups[] = {

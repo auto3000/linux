@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 //
-// Copyright (c) 2020 BayLibre, SAS.
+// Copyright (c) 2019 BayLibre, SAS.
 // Author: Jerome Brunet <jbrunet@baylibre.com>
 
 #include <linux/bitfield.h>
@@ -21,6 +21,7 @@
 
 #define TOACODEC_CTRL0			0x0
 #define  CTRL0_ENABLE_SHIFT		31
+#define  CTRL0_DAT_SEL			GENMASK(15, 14)
 #define  CTRL0_DAT_SEL_SHIFT		14
 #define  CTRL0_DAT_SEL			(0x3 << CTRL0_DAT_SEL_SHIFT)
 #define  CTRL0_LANE_SEL			12
@@ -32,7 +33,7 @@
 
 #define TOACODEC_OUT_CHMAX		2
 
-static const char * const g12a_toacodec_mux_texts[] = {
+static const char * const g12a_toacodec_if_mux_texts[] = {
 	"I2S A", "I2S B", "I2S C",
 };
 
@@ -85,14 +86,13 @@ static int g12a_toacodec_mux_put_enum(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static SOC_ENUM_SINGLE_DECL(g12a_toacodec_mux_enum, TOACODEC_CTRL0,
-			    CTRL0_DAT_SEL_SHIFT,
-			    g12a_toacodec_mux_texts);
+static SOC_ENUM_SINGLE_EXT_DECL(g12a_toacodec_if_mux_enum,
+				g12a_toacodec_if_mux_texts);
 
-static const struct snd_kcontrol_new g12a_toacodec_mux =
-	SOC_DAPM_ENUM_EXT("Source", g12a_toacodec_mux_enum,
-			  snd_soc_dapm_get_enum_double,
-			  g12a_toacodec_mux_put_enum);
+static const struct snd_kcontrol_new g12a_toacodec_if_mux =
+	SOC_DAPM_ENUM_EXT("Source", g12a_toacodec_if_mux_enum,
+			  g12a_toacodec_if_mux_get_enum,
+			  g12a_toacodec_if_mux_put_enum);
 
 static const struct snd_kcontrol_new g12a_toacodec_out_enable =
 	SOC_DAPM_SINGLE_AUTODISABLE("Switch", TOACODEC_CTRL0,
@@ -100,7 +100,7 @@ static const struct snd_kcontrol_new g12a_toacodec_out_enable =
 
 static const struct snd_soc_dapm_widget g12a_toacodec_widgets[] = {
 	SND_SOC_DAPM_MUX("SRC", SND_SOC_NOPM, 0, 0,
-			 &g12a_toacodec_mux),
+			 &g12a_toacodec_if_mux),
 	SND_SOC_DAPM_SWITCH("OUT EN", SND_SOC_NOPM, 0, 0,
 			    &g12a_toacodec_out_enable),
 };
@@ -150,8 +150,8 @@ static const struct snd_soc_dai_ops g12a_toacodec_output_ops = {
 	.id = (xid),							\
 	.playback = TOACODEC_STREAM(xname, "Playback", 8),		\
 	.ops = &g12a_toacodec_input_ops,				\
-	.probe = meson_codec_glue_input_dai_probe,			\
-	.remove = meson_codec_glue_input_dai_remove,			\
+	.probe = g12a_toacodec_input_probe,				\
+	.remove = g12a_toacodec_input_remove,				\
 }
 
 #define TOACODEC_OUTPUT(xname, xid) {					\

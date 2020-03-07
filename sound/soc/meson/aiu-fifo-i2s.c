@@ -151,3 +151,58 @@ int aiu_fifo_i2s_dai_probe(struct snd_soc_dai *dai)
 
 	return 0;
 }
+
+/*
+static struct snd_soc_dai_driver aiu_fifo_i2s_dai_drv = {
+	.name = "AIU I2S FIFO",
+	.playback = {
+		.stream_name	= "Playback",
+		.channels_min	= 2,
+		.channels_max	= 8,
+		.rates		= SNDRV_PCM_RATE_CONTINUOUS,
+		.rate_min	= 5512,
+		.rate_max	= 192000,
+		.formats	= AIU_FORMATS,
+	},
+	.ops		= &aiu_fifo_i2s_dai_ops,
+	.pcm_new	= aiu_fifo_pcm_new,
+};
+
+static const struct snd_soc_component_driver aiu_fifo_i2s_component_drv = {
+	.probe		= aiu_fifo_component_probe,
+	.pointer	= aiu_fifo_pointer,
+};
+
+static const struct aiu_fifo_hw aiu_fifo_i2s_hw = {
+	.fifo_block = AIU_I2S_FIFO_BLOCK,
+	.mem_offset = AIU_MEM_I2S_START,
+	.pcm = &fifo_i2s_pcm,
+};
+
+static const struct aiu_fifo_match_data aiu_fifo_i2s_data = {
+	.component_drv = &aiu_fifo_i2s_component_drv,
+	.dai_drv = &aiu_fifo_i2s_dai_drv,
+	.hw = &aiu_fifo_i2s_hw,
+};
+
+static const struct of_device_id aiu_fifo_i2s_of_match[] = {
+	{
+		.compatible = "amlogic,aiu-i2s-fifo",
+		.data = &aiu_fifo_i2s_data,
+	}, {}
+};
+MODULE_DEVICE_TABLE(of, aiu_fifo_i2s_of_match);
+
+static struct platform_driver aiu_fifo_i2s_pdrv = {
+	.probe = aiu_fifo_probe,
+	.driver = {
+		.name = "meson-aiu-i2s-fifo",
+		.of_match_table = aiu_fifo_i2s_of_match,
+	},
+};
+module_platform_driver(aiu_fifo_i2s_pdrv);
+
+MODULE_DESCRIPTION("Amlogic AIU I2S FIFO driver");
+MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
+MODULE_LICENSE("GPL v2");
+*/
