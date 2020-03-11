@@ -149,4 +149,3 @@ int aiu_hdmi_ctrl_register_component(struct device *dev)
 					  ARRAY_SIZE(aiu_hdmi_ctrl_dai_drv));
 }
 
-

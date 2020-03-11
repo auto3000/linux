@@ -10,6 +10,7 @@
 #include "meson-gxbb.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/sound/meson-aiu.h>
+#include <dt-bindings/gpio/meson-gxbb-gpio.h>
 
 / {
 	compatible = "hardkernel,odroid-c2", "amlogic,meson-gxbb";
@@ -149,18 +150,21 @@
 			bitclock-master = <&aiu>;
 			frame-master = <&aiu>;
 			codec-0 {
-				sound-dai = <&aiu AIU_HDMI CTRL_I2S>;
+				sound-dai = <&aiu AIU_EXTCODEC CTRL_I2S>;
 			};
 		};
 		dai-link-2 {
-			sound-dai = <&aiu AIU_HDMI CTRL_OUT>;
+			sound-dai = <&aiu AIU_EXTCODEC CTRL_OUT>;
 			codec-0 {
-				sound-dai = <&hdmi_tx>;
+				sound-dai = <&codec0>;
 			};
 		};
 	};
 };
 &i2c_A {
+	status = "okay";
+	pinctrl-0 = <&i2c_a_pins>;
+	pinctrl-names = "default";
 	codec0: cs4245@4c {
 		compatible = "cirrus,cs4245";
 		#sound-dai-cells = <0>;
@@ -172,6 +176,7 @@
 		status = "okay";
 	};
 };
+
 /*
 	i2s_in_ch01_ao_pins	=	SDOUT	= GPIOAO_6
 	i2s_am_clk_pins 	=	MCLK	= GPIOAO_8
@@ -245,12 +250,6 @@
 	hdmi_tx_tmds_out: endpoint {
 		remote-endpoint = <&hdmi_connector_in>;
 	};
-};
-
-&i2c_A {
-	status = "okay";
-	pinctrl-0 = <&i2c_a_pins>;
-	pinctrl-names = "default";
 };
 
 &ir {

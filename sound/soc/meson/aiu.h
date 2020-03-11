@@ -76,8 +76,10 @@ extern const struct snd_soc_dai_ops aiu_encoder_spdif_dai_ops;
 #define AIU_CLK_CTRL			0x058
 #define AIU_CLK_CTRL_MORE		0x064
 #define AIU_CODEC_DAC_LRCLK_CTRL	0x0a0
+#define AIU_CODEC_ADC_LRCLK_CTRL	0x0a4
 #define AIU_HDMI_CLK_DATA_CTRL		0x0a8
-#define AIU_ACODEC_CTRL			0x0ac	//00b0
+#define AIU_CODEC_CLK_DATA_CTRL		0x0ac
+#define AIU_ACODEC_CTRL			0x0b0
 #define AIU_958_CHSTAT_R0		0x0c0
 #define AIU_958_CHSTAT_R1		0x0c4
 #define AIU_MEM_I2S_START		0x180
