@@ -4,8 +4,8 @@
 
 #define AIU_CPU			0
 #define AIU_HDMI		1
-#define AIU_ACODEC		2
-#define AIU_EXTCODEC		3
+#define AIU_CODEC		2
+#define AIU_ACODEC		3
 
 #define CPU_I2S_FIFO		0
 #define CPU_SPDIF_FIFO		1

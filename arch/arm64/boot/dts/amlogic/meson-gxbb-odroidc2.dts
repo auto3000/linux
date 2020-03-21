@@ -125,21 +125,6 @@
 				       <270950400>,
 				       <393216000>;
 		status = "okay";
-/*
-		gpios = <&gpio GPIOX_3 0>,	//LOWA
-			<&gpio GPIOX_1 1>,	//MIDA
-			<&gpio GPIOX_7 0>,	//LOWB
-			<&gpio GPIOX_4 1>,	//MIDB
-			<&gpio GPIOX_8 0>,	//MICA
-			<&gpio GPIOX_5 0>,	//INSTA
-			<&gpio GPIOX_19 0>,	//MICB
-			<&gpio GPIOX_11 0>,	//INSTB
-			<&gpio GPIOY_3 0>,	//TBPASSA
-			<&gpio GPIOY_7 0>,	//TBPASSB
-			<&gpio GPIOX_0 0>,	//HP_CLK
-			<&gpio GPIOY_8 1>,	//HP_ENA
-			<&gpio GPIOX_6 0>;	//HP_UP_DN
-*/
 		dai-link-0 {
 			sound-dai = <&aiu AIU_CPU CPU_I2S_FIFO>;
 		};
@@ -150,13 +135,13 @@
 			bitclock-master = <&aiu>;
 			frame-master = <&aiu>;
 			codec-0 {
-				sound-dai = <&aiu AIU_EXTCODEC CTRL_I2S>;
+				sound-dai = <&aiu AIU_HDMI CTRL_I2S>;
 			};
 		};
 		dai-link-2 {
-			sound-dai = <&aiu AIU_EXTCODEC CTRL_OUT>;
-			codec-0 {
-				sound-dai = <&codec0>;
+			sound-dai = <&aiu AIU_HDMI CTRL_OUT>;
+			codec-1 {
+				sound-dai = <&cs4245>;
 			};
 		};
 	};
@@ -165,14 +150,35 @@
 	status = "okay";
 	pinctrl-0 = <&i2c_a_pins>;
 	pinctrl-names = "default";
-	codec0: cs4245@4c {
+	cs4245: cs4245@4c {
 		compatible = "cirrus,cs4245";
 		#sound-dai-cells = <0>;
 		reg = <0x4c>;
 		reset-gpios = <&gpio GPIOX_21 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <10000>;
+		reset-delay-us = <100000>;
 		reset-active-low;
 		default-state = "off";
+/*
+		gain_left_low-gpios     = <&gpio GPIOX_3  GPIO_ACTIVE_LOW>;
+		gain_left_mid-gpios     = <&gpio GPIOX_1  GPIO_ACTIVE_LOW>;
+		gain_right_low-gpios    = <&gpio GPIOX_7  GPIO_ACTIVE_LOW>;
+		gain_right_mid-gpios    = <&gpio GPIOX_4  GPIO_ACTIVE_LOW>;
+		zmic_left-gpios         = <&gpio GPIOX_8  GPIO_ACTIVE_HIGH>;
+		zinst_left-gpios        = <&gpio GPIOX_5  GPIO_ACTIVE_HIGH>;
+		zmic_right-gpios        = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
+		zinst_right-gpios       = <&gpio GPIOX_11 GPIO_ACTIVE_HIGH>;
+*/
+		true_bypass_left-gpios  = <&gpio GPIOY_3  GPIO_ACTIVE_HIGH>;
+		true_bypass_right-gpios = <&gpio GPIOY_7  GPIO_ACTIVE_HIGH>;
+/*
+		headphone_clk-gpios     = <&gpio GPIOX_0  GPIO_ACTIVE_HIGH>;
+		headphone_enable-gpios  = <&gpio GPIOY_8  GPIO_ACTIVE_HIGH>;
+		headphone_dir-gpios     = <&gpio GPIOX_6  GPIO_ACTIVE_HIGH>;
+*/
+/*
+		exp_flag1-gpios 	= <&gpio GPIOY_13>;
+		exp_flag2-gpios 	= <&gpio GPIOY_14>;
+*/
 		status = "okay";
 	};
 };

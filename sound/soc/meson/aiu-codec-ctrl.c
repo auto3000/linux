@@ -9,6 +9,7 @@
 #include <sound/soc-dai.h>
 
 #include <dt-bindings/sound/meson-aiu.h>
+
 #include "aiu.h"
 #include "meson-codec-glue.h"
 
@@ -20,8 +21,49 @@ static const char * const aiu_codec_ctrl_mux_texts[] = {
 	"DISABLED", "PCM", "I2S",
 };
 
-static int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
+int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol);
+
+static const struct snd_soc_dai_ops aiu_codec_ctrl_input_ops = {
+	.hw_params	= meson_codec_glue_input_hw_params,
+	.set_fmt	= meson_codec_glue_input_set_fmt,
+};
+
+static const struct snd_soc_dai_ops aiu_codec_ctrl_output_ops = {
+	.startup	= meson_codec_glue_output_startup,
+};
+
+#define AIU_CODEC_CTRL_FORMATS					\
+	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |	\
+	 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S24_LE |	\
+	 SNDRV_PCM_FMTBIT_S32_LE)
+
+#define AIU_CODEC_CTRL_STREAM(xname, xsuffix, xchan)			\
+{									\
+	.stream_name	= xname " " xsuffix,				\
+	.channels_min	= 1,						\
+	.channels_max	= xchan,					\
+	.rate_min       = 5512,						\
+	.rate_max	= 192000,					\
+	.formats	= AIU_CODEC_CTRL_FORMATS,			\
+}
+
+#define AIU_CODEC_CTRL_INPUT(xname, xchan) {				\
+	.name = "CODEC CTRL " xname,					\
+	.playback = AIU_CODEC_CTRL_STREAM(xname, "Playback", xchan),	\
+	.ops = &aiu_codec_ctrl_input_ops,				\
+	.probe = meson_codec_glue_input_dai_probe,			\
+	.remove = meson_codec_glue_input_dai_remove,			\
+}
+
+#define AIU_CODEC_CTRL_OUTPUT(xname, xchan) {				\
+	.name = "CODEC CTRL " xname,					\
+	.capture = AIU_CODEC_CTRL_STREAM(xname, "Capture", xchan),	\
+	.ops = &aiu_codec_ctrl_output_ops,				\
+}
+
+int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component =
 		snd_soc_dapm_kcontrol_component(kcontrol);
@@ -59,6 +101,7 @@ static int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(aiu_codec_ctrl_mux_put_enum);
 
 static SOC_ENUM_SINGLE_DECL(aiu_hdmi_ctrl_mux_enum, AIU_HDMI_CLK_DATA_CTRL,
 			    CTRL_DATA_SEL_SHIFT,
@@ -74,48 +117,10 @@ static const struct snd_soc_dapm_widget aiu_hdmi_ctrl_widgets[] = {
 			 &aiu_hdmi_ctrl_mux),
 };
 
-static const struct snd_soc_dai_ops aiu_codec_ctrl_input_ops = {
-	.hw_params	= meson_codec_glue_input_hw_params,
-	.set_fmt	= meson_codec_glue_input_set_fmt,
-};
-
-static const struct snd_soc_dai_ops aiu_codec_ctrl_output_ops = {
-	.startup	= meson_codec_glue_output_startup,
-};
-
-#define AIU_CODEC_CTRL_FORMATS					\
-	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |	\
-	 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S24_LE |	\
-	 SNDRV_PCM_FMTBIT_S32_LE)
-
-#define AIU_CODEC_CTRL_STREAM(xname, xsuffix)			\
-{								\
-	.stream_name	= xname " " xsuffix,			\
-	.channels_min	= 1,					\
-	.channels_max	= 8,					\
-	.rate_min       = 5512,					\
-	.rate_max	= 192000,				\
-	.formats	= AIU_CODEC_CTRL_FORMATS,		\
-}
-
-#define AIU_CODEC_CTRL_INPUT(xname) {				\
-	.name = "CODEC CTRL " xname,				\
-	.playback = AIU_CODEC_CTRL_STREAM(xname, "Playback"),	\
-	.ops = &aiu_codec_ctrl_input_ops,			\
-	.probe = meson_codec_glue_input_dai_probe,		\
-	.remove = meson_codec_glue_input_dai_remove,		\
-}
-
-#define AIU_CODEC_CTRL_OUTPUT(xname) {				\
-	.name = "CODEC CTRL " xname,				\
-	.capture = AIU_CODEC_CTRL_STREAM(xname, "Capture"),	\
-	.ops = &aiu_codec_ctrl_output_ops,			\
-}
-
 static struct snd_soc_dai_driver aiu_hdmi_ctrl_dai_drv[] = {
-	[CTRL_I2S] = AIU_CODEC_CTRL_INPUT("HDMI I2S IN"),
-	[CTRL_PCM] = AIU_CODEC_CTRL_INPUT("HDMI PCM IN"),
-	[CTRL_OUT] = AIU_CODEC_CTRL_OUTPUT("HDMI OUT"),
+	[CTRL_I2S] = AIU_CODEC_CTRL_INPUT("HDMI I2S IN", 8),
+	[CTRL_PCM] = AIU_CODEC_CTRL_INPUT("HDMI PCM IN", 8),
+	[CTRL_OUT] = AIU_CODEC_CTRL_OUTPUT("HDMI OUT", 8),
 };
 
 static const struct snd_soc_dapm_route aiu_hdmi_ctrl_routes[] = {

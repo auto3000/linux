@@ -336,10 +336,10 @@ static int aiu_probe(struct platform_device *pdev)
 		return ret;
 	}
  
-	/* Register the hdmi codec control component */
+	/* Register the codec control component */
 	ret = aiu_hdmi_ctrl_register_component(dev);
 	if (ret) {
-		dev_err(dev, "Failed to register hdmi control component\n");
+		dev_err(dev, "Failed to register codec control component\n");
 		goto err;
 	}
 

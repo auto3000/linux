@@ -8,6 +8,7 @@ config SND_MESON_AIU
  	select SND_PCM_IEC958
 	#imply SND_SOC_HDMI_CODEC if DRM_MESON_DW_HDMI
 	imply SND_SOC_CS4245
+	#imply SND_MULTI_FX
 	help
 	  Select Y or M to add support for the Audio output subsystem found
 	  in the Amlogic GX SoC family

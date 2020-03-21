@@ -63,24 +63,7 @@ static int gx_card_parse_i2s(struct snd_soc_card *card,
 
 	return 0;
 }
-/*
-static int gx_card_cpu_is_playback_fe(struct device_node *np)
-{
-	return of_device_is_compatible(np, DT_PREFIX "aiu-i2s-fifo");
-}
 
-static int gx_card_cpu_is_i2s_encoder(struct device_node *np)
-{
-	return of_device_is_compatible(np, DT_PREFIX "aiu-i2s-encode");
-}
-
-static int gx_card_cpu_is_codec(struct device_node *np)
-{
-	printk ("gx card cpu is codec: %s\n", np->full_name);
-	return of_device_is_compatible(np, DT_PREFIX "gx-tohdmitx") ||
-		of_device_is_compatible(np, DT_PREFIX "gxbb-toacodec");
-}
-*/
 static int gx_card_cpu_identify(struct snd_soc_dai_link_component *c,
 				char *match)
 {
@@ -90,18 +73,6 @@ static int gx_card_cpu_identify(struct snd_soc_dai_link_component *c,
 	}
 
 	printk("gx_card_cpu_identify: dai_name \"%s\" does not match \"%s\"", c->dai_name, match);
-	/* dai not matched */
-	return 0;
-}
-
-static int gx_card_codec_identify(struct snd_soc_dai_link_component *c,
-				char *match)
-{
-	if (of_device_is_compatible(c->of_node, "cirrus,cs4245")) {
-		if (strstr(c->dai_name, match))
-			return 1;
-	}
-	printk("gx_card_codec_identify: dai_name \"%s\" does not match \"%s\"", c->dai_name, match);
 	/* dai not matched */
 	return 0;
 }
@@ -133,39 +104,12 @@ static int gx_card_add_link(struct snd_soc_card *card, struct device_node *np,
 
 	if (ret)
 		return ret;
-/*
-	if (gx_card_cpu_is_playback_fe(dai_link->cpu_of_node)) {
-		ret = meson_card_set_fe_link(card, dai_link, np, true);
-		printk ("gx card cpu is fe (0): %s\n", dai_link->cpu_of_node->name);
-	}
-	else {
-		ret = meson_card_set_be_link(card, dai_link, np);
-		printk ("gx card cpu is be (0): %s\n", dai_link->cpu_of_node->name);
-	}
-	if (ret)
-		return ret;
-
-	if (gx_card_cpu_is_i2s_encoder(dai_link->cpu_of_node)) {
-		printk ("gx card cpu is i2s encoder (0): %s\n", dai_link->cpu_of_node->name);
-		ret = gx_card_parse_i2s(card, np, index);
-	}
-	else if (gx_card_cpu_is_codec(dai_link->cpu_of_node)) {
-		printk ("gx card cpu is codec (0): %s\n", dai_link->cpu_of_node->name);
-		dai_link->params = &codec_params;	
-	}
-*/
 	/* Check if the cpu is the i2s encoder and parse i2s data */
 	if (gx_card_cpu_identify(dai_link->cpus, "I2S Encoder"))
 		ret = gx_card_parse_i2s(card, np, index);
-
 	/* Or apply codec to codec params if necessary */
 	else if (gx_card_cpu_identify(dai_link->cpus, "CODEC CTRL"))
 		dai_link->params = &codec_params;
-	/* Added codec CS4245 23/02/2020 */
-/*
-	else if (gx_card_codec_identify(dai_link->cpus, "cs4245-dai"))
-		dai_link->params = &codec_params;
-*/
 	return ret;
 }
 

@@ -12,6 +12,7 @@
 #include "aiu.h"
 
 #define AIU_I2S_SOURCE_DESC_MODE_8CH	BIT(0)
+#define AIU_I2S_SOURCE_DESC_MSB_INV	BIT(1)
 #define AIU_I2S_SOURCE_DESC_MODE_24BIT	BIT(5)
 #define AIU_I2S_SOURCE_DESC_MODE_32BIT	BIT(9)
 #define AIU_I2S_SOURCE_DESC_MODE_SPLIT	BIT(11)
@@ -71,7 +72,8 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 				      struct snd_pcm_hw_params *params)
 {
 	/* Always operate in split (classic interleaved) mode */
-	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT;
+	/* Invert MSB */
+	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT | AIU_I2S_SOURCE_DESC_MSB_INV;
 	unsigned int val;
 
 	/* Reset required to update the pipeline */
@@ -105,7 +107,8 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 				      AIU_I2S_SOURCE_DESC_MODE_8CH |
 				      AIU_I2S_SOURCE_DESC_MODE_24BIT |
 				      AIU_I2S_SOURCE_DESC_MODE_32BIT |
-				      AIU_I2S_SOURCE_DESC_MODE_SPLIT,
+				      AIU_I2S_SOURCE_DESC_MODE_SPLIT |
+				      AIU_I2S_SOURCE_DESC_MSB_INV,
 				      desc);
 
 	return 0;

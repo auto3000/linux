@@ -30,11 +30,6 @@
 #define CS4245_MCLK_FREQ			0x5
 #define CS4245_MCLK_FREQ_MASK			(7 << 4)
 
-/* On CS4245 there are 2 MCLK clocks */
-/*
-#define CS4245_MCLK2_FREQ_MASK			7
-*/
-
 #define CS4245_SIG_SEL				0x6
 #define CS4245_SIG_SEL_LOOP			(1 << 1)
 
@@ -53,16 +48,6 @@
 #define CS4245_STATUS_MODE_MSB			0xF
 #define CS4245_STATUS_MODE_LSB			0x10
 
-/* There is no SPDIF ob CS4245 */
-/*
-#define CS4245_SPDIF_CTL1			0x11
-
-#define CS4245_SPDIF_CTL2			0x12
-#define CS4245_SPDIF_CTL2_MUTE			(1 << 4)
-#define CS4245_SPDIF_CTL2_DIF			(3 << 6)
-
-#define CS4245_C_DATA_BUFF			0x13
-*/
 #define CS4245_MAX_REGISTER			0x10
 
 #endif
