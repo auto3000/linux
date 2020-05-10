@@ -14,9 +14,8 @@
 #include "meson-codec-glue.h"
 
 #define CTRL_CLK_SEL		GENMASK(1, 0)
-#define CTRL_DATA_SEL		GENMASK(5, 4)
 #define CTRL_DATA_SEL_SHIFT	4
-//#define CTRL_DATA_SEL		(0x3 << CTRL_DATA_SEL_SHIFT)
+#define CTRL_DATA_SEL		(0x3 << CTRL_DATA_SEL_SHIFT)
 
 static const char * const aiu_codec_ctrl_mux_texts[] = {
 	"DISABLED", "PCM", "I2S",
@@ -59,10 +58,8 @@ static const struct snd_soc_dai_ops aiu_codec_ctrl_output_ops = {
 
 #define AIU_CODEC_CTRL_OUTPUT(xname, xchan) {				\
 	.name = "CODEC CTRL " xname,					\
-	.playback = AIU_CODEC_CTRL_STREAM(xname, "Playback", xchan),	\
+	.capture = AIU_CODEC_CTRL_STREAM(xname, "Capture", xchan),	\
 	.ops = &aiu_codec_ctrl_output_ops,				\
-	.probe = meson_codec_glue_output_dai_probe,			\
-	.remove = meson_codec_glue_output_dai_remove,			\
 }
 
 int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
@@ -106,54 +103,54 @@ int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
 }
 EXPORT_SYMBOL_GPL(aiu_codec_ctrl_mux_put_enum);
 
-static SOC_ENUM_DOUBLE_DECL(aiu_codec_ctrl_mux_enum, AIU_HDMI_CLK_DATA_CTRL,
-			    0, CTRL_DATA_SEL_SHIFT,
+static SOC_ENUM_SINGLE_DECL(aiu_hdmi_ctrl_mux_enum, AIU_HDMI_CLK_DATA_CTRL,
+			    CTRL_DATA_SEL_SHIFT,
 			    aiu_codec_ctrl_mux_texts);
 
-static const struct snd_kcontrol_new aiu_codec_ctrl_mux =
-	SOC_DAPM_ENUM_EXT("Codec Source", aiu_codec_ctrl_mux_enum,
+static const struct snd_kcontrol_new aiu_hdmi_ctrl_mux =
+	SOC_DAPM_ENUM_EXT("HDMI Source", aiu_hdmi_ctrl_mux_enum,
 			  snd_soc_dapm_get_enum_double,
 			  aiu_codec_ctrl_mux_put_enum);
 
-static const struct snd_soc_dapm_widget aiu_codec_ctrl_widgets[] = {
-	SND_SOC_DAPM_MUX("CODEC SRC", SND_SOC_NOPM, 0, 0,
-			 &aiu_codec_ctrl_mux),
+static const struct snd_soc_dapm_widget aiu_hdmi_ctrl_widgets[] = {
+	SND_SOC_DAPM_MUX("HDMI CTRL SRC", SND_SOC_NOPM, 0, 0,
+			 &aiu_hdmi_ctrl_mux),
 };
 
-static struct snd_soc_dai_driver aiu_codec_ctrl_dai_drv[] = {
-	[CTRL_I2S] = AIU_CODEC_CTRL_INPUT("I2S IN", 2),
-	[CTRL_PCM] = AIU_CODEC_CTRL_INPUT("PCM IN", 2),
-	[CTRL_OUT] = AIU_CODEC_CTRL_OUTPUT("CODEC OUT", 2),
+static struct snd_soc_dai_driver aiu_hdmi_ctrl_dai_drv[] = {
+	[CTRL_I2S] = AIU_CODEC_CTRL_INPUT("HDMI I2S IN", 8),
+	[CTRL_PCM] = AIU_CODEC_CTRL_INPUT("HDMI PCM IN", 8),
+	[CTRL_OUT] = AIU_CODEC_CTRL_OUTPUT("HDMI OUT", 8),
 };
 
-static const struct snd_soc_dapm_route aiu_codec_ctrl_routes[] = {
-	{ "CODEC SRC", "I2S", "I2S IN Playback" },
-	{ "CODEC SRC", "PCM", "PCM IN Playback" },
-	{ "CODEC OUT Playback", NULL, "CODEC SRC" },
+static const struct snd_soc_dapm_route aiu_hdmi_ctrl_routes[] = {
+	{ "HDMI CTRL SRC", "I2S", "HDMI I2S IN Playback" },
+	{ "HDMI CTRL SRC", "PCM", "HDMI PCM IN Playback" },
+	{ "HDMI OUT Capture", NULL, "HDMI CTRL SRC" },
 };
 
-static int aiu_codec_of_xlate_dai_name(struct snd_soc_component *component,
+static int aiu_hdmi_of_xlate_dai_name(struct snd_soc_component *component,
 				      struct of_phandle_args *args,
 				      const char **dai_name)
 {
-	return aiu_of_xlate_dai_name(component, args, dai_name, AIU_CODEC);
+	return aiu_of_xlate_dai_name(component, args, dai_name, AIU_HDMI);
 }
 
-static const struct snd_soc_component_driver aiu_codec_ctrl_component = {
-	.name			= "AIU Codec Control",
-	.dapm_widgets		= aiu_codec_ctrl_widgets,
-	.num_dapm_widgets	= ARRAY_SIZE(aiu_codec_ctrl_widgets),
-	.dapm_routes		= aiu_codec_ctrl_routes,
-	.num_dapm_routes	= ARRAY_SIZE(aiu_codec_ctrl_routes),
-	.of_xlate_dai_name	= aiu_codec_of_xlate_dai_name,
+static const struct snd_soc_component_driver aiu_hdmi_ctrl_component = {
+	.name			= "AIU HDMI Codec Control",
+	.dapm_widgets		= aiu_hdmi_ctrl_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(aiu_hdmi_ctrl_widgets),
+	.dapm_routes		= aiu_hdmi_ctrl_routes,
+	.num_dapm_routes	= ARRAY_SIZE(aiu_hdmi_ctrl_routes),
+	.of_xlate_dai_name	= aiu_hdmi_of_xlate_dai_name,
 	.endianness		= 1,
 	.non_legacy_dai_naming	= 1,
 };
 
-int aiu_codec_ctrl_register_component(struct device *dev)
+int aiu_hdmi_ctrl_register_component(struct device *dev)
 {
-	return snd_soc_register_component(dev, &aiu_codec_ctrl_component,
-					  aiu_codec_ctrl_dai_drv,
-					  ARRAY_SIZE(aiu_codec_ctrl_dai_drv));
+	return snd_soc_register_component(dev, &aiu_hdmi_ctrl_component,
+					  aiu_hdmi_ctrl_dai_drv,
+					  ARRAY_SIZE(aiu_hdmi_ctrl_dai_drv));
 }
 

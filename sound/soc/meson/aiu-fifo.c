@@ -11,16 +11,16 @@
 
 #include "aiu-fifo.h"
 
-#define AIU_MEM_START	0x00
-#define AIU_MEM_RD	0x04
-#define AIU_MEM_END	0x08
-#define AIU_MEM_MASKS	0x0c
-#define  AIU_MEM_MASK_CH_RD GENMASK(7, 0)
-#define  AIU_MEM_MASK_CH_MEM GENMASK(15, 8)
-#define AIU_MEM_CONTROL	0x10
-#define  AIU_MEM_CONTROL_INIT BIT(0)
-#define  AIU_MEM_CONTROL_FILL_EN BIT(1)
-#define  AIU_MEM_CONTROL_EMPTY_EN BIT(2)
+#define AIU_MEM_START			0x00
+#define AIU_MEM_RD			0x04
+#define AIU_MEM_END			0x08
+#define AIU_MEM_MASKS			0x0C
+#define AIU_MEM_MASK_CH_RD 		GENMASK(7, 0)
+#define AIU_MEM_MASK_CH_MEM 		GENMASK(15, 8)
+#define AIU_MEM_CONTROL			0x10
+#define AIU_MEM_CONTROL_INIT 		BIT(0)
+#define AIU_MEM_CONTROL_FILL_EN 	BIT(1)
+#define AIU_MEM_CONTROL_EMPTY_EN 	BIT(2)
 
 static struct snd_soc_dai *aiu_fifo_dai(struct snd_pcm_substream *ss)
 {

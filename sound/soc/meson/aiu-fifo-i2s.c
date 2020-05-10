@@ -16,6 +16,7 @@
 #define AIU_I2S_SOURCE_DESC_MODE_24BIT	BIT(5)
 #define AIU_I2S_SOURCE_DESC_MODE_32BIT	BIT(9)
 #define AIU_I2S_SOURCE_DESC_MODE_SPLIT	BIT(11)
+#define AIU_MEM_I2S_MASKS_CHAN_MASK	GENMASK(15, 0)
 #define AIU_MEM_I2S_MASKS_IRQ_BLOCK	GENMASK(31, 16)
 #define AIU_MEM_I2S_CONTROL_MODE_16BIT	BIT(6)
 #define AIU_MEM_I2S_BUF_CNTL_INIT	BIT(0)
@@ -29,12 +30,12 @@ static struct snd_pcm_hardware fifo_i2s_pcm = {
 		 SNDRV_PCM_INFO_MMAP_VALID |
 		 SNDRV_PCM_INFO_PAUSE),
 	.formats = AIU_FORMATS,
-	.rate_min = 5512,
+	.rate_min = 8000,
 	.rate_max = 192000,
 	.channels_min = 2,
 	.channels_max = 8,
 	.period_bytes_min = AIU_FIFO_I2S_BLOCK,
-	.period_bytes_max = AIU_FIFO_I2S_BLOCK * USHRT_MAX,
+	.period_bytes_max = USHRT_MAX,
 	.periods_min = 2,
 	.periods_max = UINT_MAX,
 
@@ -99,6 +100,7 @@ static int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
 	case 16:
 		val = AIU_MEM_I2S_CONTROL_MODE_16BIT;
 		break;
+	case 24:
 	case 32:
 		val = 0;
 		break;
@@ -111,6 +113,11 @@ static int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_component_update_bits(component, AIU_MEM_I2S_CONTROL,
 				      AIU_MEM_I2S_CONTROL_MODE_16BIT,
 				      val);
+
+	/* Set Channel Mask to 0xffff for split mode */
+	val = FIELD_PREP(AIU_MEM_I2S_MASKS_CHAN_MASK, 0xffff);
+	snd_soc_component_update_bits(component, AIU_MEM_I2S_MASKS,
+				      AIU_MEM_I2S_MASKS_CHAN_MASK, val);
 
 	/* Setup the irq periodicity */
 	val = params_period_bytes(params) / fifo->fifo_block;
@@ -152,57 +159,3 @@ int aiu_fifo_i2s_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
-/*
-static struct snd_soc_dai_driver aiu_fifo_i2s_dai_drv = {
-	.name = "AIU I2S FIFO",
-	.playback = {
-		.stream_name	= "Playback",
-		.channels_min	= 2,
-		.channels_max	= 8,
-		.rates		= SNDRV_PCM_RATE_CONTINUOUS,
-		.rate_min	= 5512,
-		.rate_max	= 192000,
-		.formats	= AIU_FORMATS,
-	},
-	.ops		= &aiu_fifo_i2s_dai_ops,
-	.pcm_new	= aiu_fifo_pcm_new,
-};
-
-static const struct snd_soc_component_driver aiu_fifo_i2s_component_drv = {
-	.probe		= aiu_fifo_component_probe,
-	.pointer	= aiu_fifo_pointer,
-};
-
-static const struct aiu_fifo_hw aiu_fifo_i2s_hw = {
-	.fifo_block = AIU_I2S_FIFO_BLOCK,
-	.mem_offset = AIU_MEM_I2S_START,
-	.pcm = &fifo_i2s_pcm,
-};
-
-static const struct aiu_fifo_match_data aiu_fifo_i2s_data = {
-	.component_drv = &aiu_fifo_i2s_component_drv,
-	.dai_drv = &aiu_fifo_i2s_dai_drv,
-	.hw = &aiu_fifo_i2s_hw,
-};
-
-static const struct of_device_id aiu_fifo_i2s_of_match[] = {
-	{
-		.compatible = "amlogic,aiu-i2s-fifo",
-		.data = &aiu_fifo_i2s_data,
-	}, {}
-};
-MODULE_DEVICE_TABLE(of, aiu_fifo_i2s_of_match);
-
-static struct platform_driver aiu_fifo_i2s_pdrv = {
-	.probe = aiu_fifo_probe,
-	.driver = {
-		.name = "meson-aiu-i2s-fifo",
-		.of_match_table = aiu_fifo_i2s_of_match,
-	},
-};
-module_platform_driver(aiu_fifo_i2s_pdrv);
-
-MODULE_DESCRIPTION("Amlogic AIU I2S FIFO driver");
-MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
-MODULE_LICENSE("GPL v2");
-*/

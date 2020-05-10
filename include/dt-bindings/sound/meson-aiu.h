@@ -3,8 +3,8 @@
 #define __DT_MESON_AIU_H
 
 #define AIU_CPU			0
-#define AIU_HDMI		1
-#define AIU_CODEC		2
+#define AIU_CODEC		1
+#define AIU_HDMI		2
 #define AIU_ACODEC		3
 
 #define CPU_I2S_FIFO		0

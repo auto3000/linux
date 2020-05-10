@@ -46,8 +46,4 @@ void aiu_fifo_shutdown(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai);
 int aiu_fifo_pcm_new(struct snd_soc_pcm_runtime *rtd,
 		     struct snd_soc_dai *dai);
-/*
-int aiu_fifo_component_probe(struct snd_soc_component *component);
-int aiu_fifo_probe(struct platform_device *pdev);
-*/
 #endif /* _MESON_AIU_FIFO_H */

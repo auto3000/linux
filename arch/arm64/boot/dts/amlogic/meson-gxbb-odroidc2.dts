@@ -10,7 +10,9 @@
 #include "meson-gxbb.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/sound/meson-aiu.h>
+#include <dt-bindings/sound/meson-audin.h>
 #include <dt-bindings/gpio/meson-gxbb-gpio.h>
+#include <dt-bindings/sound/cs4245.h>
 
 / {
 	compatible = "hardkernel,odroid-c2", "amlogic,meson-gxbb";
@@ -117,6 +119,36 @@
 	sound {
 		compatible = "amlogic,gx-sound-card";
 	        model = "GXBB ODROID-C2 S905";
+		audio-widgets =  "Line", "LINEIN4_MICL",
+				 "Line", "LINEIN4_MICR",
+				 "Line", "AUXOUTL",
+				 "Line", "AUXOUTR", 
+				 "Line", "LINEOUTL",
+				 "Line", "LINEOUTR";
+		audio-routing = "DAI1 Playback", "AIU_CPU I2S IN Playback",
+				"DIN1", "DAI1 Playback",
+				"DAC DeEmp", "DIN1",
+				"DAC Invert", "DAC DeEmp",
+				"DAC ZeroCross", "DAC Invert",
+				"DAC SoftRamp", "DAC ZeroCross",
+				"DAC", "DAC SoftRamp",
+				"AUXOUT Mux", "DAC",
+				"AUXOUTL", "AUXOUT Mux",
+				"AUXOUTR", "AUXOUT Mux",
+				"LINEOUTL", "DAC",
+				"LINEOUTR", "DAC",
+				"MIC Pre-Amp", "LINEIN4_MICL",
+				"MIC Pre-Amp", "LINEIN4_MICR",
+				"ADC Mux", "LINEIN4_MICL",
+				"ADC Mux", "LINEIN4_MICR",
+				"ADC HPF", "ADC Mux",
+				"ADC ZeroCross", "ADC HPF",
+				"ADC SoftRamp", "ADC ZeroCross",
+				"ADC", "ADC SoftRamp",
+				"DOUT", "ADC",
+				"DAI1 Capture", "DOUT",
+				"AUDIN_CPU I2S CLK OUT Capture", "DAI1 Capture";
+
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
 				  <&clkc CLKID_MPLL1>;
@@ -125,23 +157,42 @@
 				       <270950400>,
 				       <393216000>;
 		status = "okay";
-		dai-link-0 {
+		dai-link@0 {
 			sound-dai = <&aiu AIU_CPU CPU_I2S_FIFO>;
 		};
-		dai-link-1 {
+		dai-link@2 {
 			sound-dai = <&aiu AIU_CPU CPU_I2S_ENCODER>;
 			dai-format = "i2s";
 			mclk-fs = <256>;
 			bitclock-master = <&aiu>;
 			frame-master = <&aiu>;
-			codec-0 {
-				sound-dai = <&aiu AIU_HDMI CTRL_I2S>;
+			codec {
+				sound-dai = <&aiu AIU_CODEC CTRL_I2S>;
 			};
 		};
-		dai-link-2 {
-			sound-dai = <&aiu AIU_HDMI CTRL_OUT>;
-			codec-1 {
-				sound-dai = <&cs4245>;
+		dai-link@4 {
+			sound-dai = <&aiu AIU_CODEC CTRL_OUT>;
+			codec {
+				sound-dai = <&cs4245 CS4245_PLAYBACK>;
+			};
+		};
+		dai-link@1 {
+			sound-dai = <&audin AUDIN_CPU CPU_I2S_FIFO_DECODE>;
+		};
+		dai-link@3 {
+			sound-dai = <&audin AUDIN_CPU CPU_I2S_DECODER>;
+			dai-format = "i2s";
+			mclk-fs = <256>;
+			bitclock-master = <&audin>;
+			frame-master = <&audin>;
+			codec {
+				sound-dai = <&audin AUDIN_CODEC CLK_OUT>;
+			};
+		};
+		dai-link@5 {
+			sound-dai = <&audin AUDIN_CODEC CLK_INT>;
+			codec {
+				sound-dai = <&cs4245 CS4245_CAPTURE>;
 			};
 		};
 	};
@@ -152,13 +203,12 @@
 	pinctrl-names = "default";
 	cs4245: cs4245@4c {
 		compatible = "cirrus,cs4245";
-		#sound-dai-cells = <0>;
+		#sound-dai-cells = <1>;
 		reg = <0x4c>;
 		reset-gpios = <&gpio GPIOX_21 GPIO_ACTIVE_LOW>;
 		reset-delay-us = <100000>;
 		reset-active-low;
 		default-state = "off";
-/*
 		gain_left_low-gpios     = <&gpio GPIOX_3  GPIO_ACTIVE_LOW>;
 		gain_left_mid-gpios     = <&gpio GPIOX_1  GPIO_ACTIVE_LOW>;
 		gain_right_low-gpios    = <&gpio GPIOX_7  GPIO_ACTIVE_LOW>;
@@ -167,14 +217,11 @@
 		zinst_left-gpios        = <&gpio GPIOX_5  GPIO_ACTIVE_HIGH>;
 		zmic_right-gpios        = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
 		zinst_right-gpios       = <&gpio GPIOX_11 GPIO_ACTIVE_HIGH>;
-*/
-		true_bypass_left-gpios  = <&gpio GPIOY_3  GPIO_ACTIVE_HIGH>;
-		true_bypass_right-gpios = <&gpio GPIOY_7  GPIO_ACTIVE_HIGH>;
-/*
+		true_bypass_left-gpios  = <&gpio GPIOY_7  GPIO_ACTIVE_HIGH>;
+		true_bypass_right-gpios = <&gpio GPIOY_3  GPIO_ACTIVE_HIGH>;
 		headphone_clk-gpios     = <&gpio GPIOX_0  GPIO_ACTIVE_HIGH>;
 		headphone_enable-gpios  = <&gpio GPIOY_8  GPIO_ACTIVE_HIGH>;
 		headphone_dir-gpios     = <&gpio GPIOX_6  GPIO_ACTIVE_HIGH>;
-*/
 /*
 		exp_flag1-gpios 	= <&gpio GPIOY_13>;
 		exp_flag2-gpios 	= <&gpio GPIOY_14>;
@@ -192,7 +239,13 @@
 */
 &aiu {
 	pinctrl-0 = <&i2s_am_clk_pins>, <&i2s_out_ao_clk_pins>,
-		    <&i2s_out_lr_clk_pins>, <&i2s_out_ch01_ao_pins>, <&i2s_in_ch01_ao_pins>;
+		    <&i2s_out_lr_clk_pins>, <&i2s_out_ch01_ao_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&audin {
+	pinctrl-0 = <&i2s_in_ch01_ao_pins>;
 	pinctrl-names = "default";
 	status = "okay";
 };
@@ -382,6 +435,7 @@
 
 &usb0 {
 	status = "okay";
+	dr_mode = "otg";
 };
 
 &usb1 {

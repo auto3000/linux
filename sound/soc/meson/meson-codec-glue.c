@@ -37,6 +37,33 @@ meson_codec_glue_get_input(struct snd_soc_dapm_widget *w)
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_get_input);
 
+struct snd_soc_dapm_widget *
+meson_codec_glue_get_output(struct snd_soc_dapm_widget *w)
+{
+	struct snd_soc_dapm_path *p = NULL;
+	struct snd_soc_dapm_widget *out;
+
+	snd_soc_dapm_widget_for_each_sink_path(w, p) {
+		if (!p->connect)
+			continue;
+
+		/* Check that we still are out the same component */
+		if (snd_soc_dapm_to_component(w->dapm) !=
+		    snd_soc_dapm_to_component(p->sink->dapm))
+			continue;
+
+		if (p->sink->id == snd_soc_dapm_dai_in)
+			return p->sink;
+
+		out = meson_codec_glue_get_output(p->sink);
+		if (out)
+			return out;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_get_output);
+
 void meson_codec_glue_input_set_data(struct snd_soc_dai *dai,
 				     struct meson_codec_glue_input *data)
 {
@@ -44,12 +71,26 @@ void meson_codec_glue_input_set_data(struct snd_soc_dai *dai,
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_set_data);
 
+void meson_codec_glue_output_set_data(struct snd_soc_dai *dai,
+				      struct meson_codec_glue_input *data)
+{
+	dai->capture_dma_data = data;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_set_data);
+
 struct meson_codec_glue_input *
 meson_codec_glue_input_get_data(struct snd_soc_dai *dai)
 {
 	return dai->playback_dma_data;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_get_data);
+
+struct meson_codec_glue_input *
+meson_codec_glue_output_get_data(struct snd_soc_dai *dai)
+{
+	return dai->capture_dma_data;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_get_data);
 
 struct meson_codec_glue_input *
 meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
@@ -66,6 +107,22 @@ meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
 	return meson_codec_glue_input_get_data(dai);
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_output_get_input_data);
+
+struct meson_codec_glue_input *
+meson_codec_glue_input_get_output_data(struct snd_soc_dapm_widget *w)
+{
+	struct snd_soc_dapm_widget *out =
+		meson_codec_glue_get_output(w);
+	struct snd_soc_dai *dai;
+
+	if (WARN_ON(!out))
+		return NULL;
+
+	dai = out->priv;
+
+	return meson_codec_glue_output_get_data(dai);
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_input_get_output_data);
 
 int meson_codec_glue_input_hw_params(struct snd_pcm_substream *substream,
 				     struct snd_pcm_hw_params *params,
@@ -86,6 +143,25 @@ int meson_codec_glue_input_hw_params(struct snd_pcm_substream *substream,
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_hw_params);
 
+int meson_codec_glue_output_hw_params(struct snd_pcm_substream *substream,
+				      struct snd_pcm_hw_params *params,
+				      struct snd_soc_dai *dai)
+{
+	struct meson_codec_glue_input *data =
+		meson_codec_glue_output_get_data(dai);
+
+	data->params.rates = snd_pcm_rate_to_rate_bit(params_rate(params));
+	data->params.rate_min = params_rate(params);
+	data->params.rate_max = params_rate(params);
+	data->params.formats = 1ULL << (__force int) params_format(params);
+	data->params.channels_min = params_channels(params);
+	data->params.channels_max = params_channels(params);
+	data->params.sig_bits = dai->driver->capture.sig_bits;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_hw_params);
+
 int meson_codec_glue_input_set_fmt(struct snd_soc_dai *dai,
 				   unsigned int fmt)
 {
@@ -98,14 +174,26 @@ int meson_codec_glue_input_set_fmt(struct snd_soc_dai *dai,
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_set_fmt);
 
+int meson_codec_glue_output_set_fmt(struct snd_soc_dai *dai,
+				    unsigned int fmt)
+{
+	struct meson_codec_glue_input *data =
+		meson_codec_glue_output_get_data(dai);
+
+	/* Save the sink stream format for the upstream link */
+	data->fmt = fmt;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_set_fmt);
+
 int meson_codec_glue_output_startup(struct snd_pcm_substream *substream,
 				    struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct meson_codec_glue_input *in_data =
+	struct meson_codec_glue_input *data =
 		meson_codec_glue_output_get_input_data(dai->capture_widget);
 
-	if (!in_data)
+	if (!data)
 		return -ENODEV;
 
 	if (WARN_ON(!rtd->dai_link->params)) {
@@ -114,14 +202,39 @@ int meson_codec_glue_output_startup(struct snd_pcm_substream *substream,
 	}
 
 	/* Replace link params with the input params */
-	rtd->dai_link->params = &in_data->params;
+	rtd->dai_link->params = &data->params;
 
-	if (!in_data->fmt)
+	if (!data->fmt)
 		return 0;
 
-	return snd_soc_runtime_set_dai_fmt(rtd, in_data->fmt);
+	return snd_soc_runtime_set_dai_fmt(rtd, data->fmt);
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_output_startup);
+
+int meson_codec_glue_input_startup(struct snd_pcm_substream *substream,
+				   struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct meson_codec_glue_input *data =
+		meson_codec_glue_input_get_output_data(dai->playback_widget);
+
+	if (!data)
+		return -ENODEV;
+
+	if (WARN_ON(!rtd->dai_link->params)) {
+		dev_warn(dai->dev, "codec2codec link expected\n");
+		return -EINVAL;
+	}
+
+	/* Replace link params with the input params */
+	rtd->dai_link->params = &data->params;
+
+	if (!data->fmt)
+		return 0;
+
+	return snd_soc_runtime_set_dai_fmt(rtd, data->fmt);
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_input_startup);
 
 int meson_codec_glue_input_dai_probe(struct snd_soc_dai *dai)
 {
@@ -136,6 +249,19 @@ int meson_codec_glue_input_dai_probe(struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_dai_probe);
 
+int meson_codec_glue_output_dai_probe(struct snd_soc_dai *dai)
+{
+	struct meson_codec_glue_input *data;
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	meson_codec_glue_output_set_data(dai, data);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_dai_probe);
+
 int meson_codec_glue_input_dai_remove(struct snd_soc_dai *dai)
 {
 	struct meson_codec_glue_input *data =
@@ -145,6 +271,16 @@ int meson_codec_glue_input_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_dai_remove);
+
+int meson_codec_glue_output_dai_remove(struct snd_soc_dai *dai)
+{
+	struct meson_codec_glue_input *data =
+		meson_codec_glue_output_get_data(dai);
+
+	kfree(data);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(meson_codec_glue_output_dai_remove);
 
 MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
 MODULE_DESCRIPTION("Amlogic Codec Glue Helpers");

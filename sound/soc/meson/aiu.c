@@ -30,15 +30,15 @@ static const struct snd_kcontrol_new aiu_spdif_encode_mux =
 	SOC_DAPM_ENUM("SPDIF Buffer Src", aiu_spdif_encode_sel_enum);
 
 static const struct snd_soc_dapm_widget aiu_cpu_dapm_widgets[] = {
-	SND_SOC_DAPM_MUX("SPDIF SRC SEL", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("SPDIF SRC", SND_SOC_NOPM, 0, 0,
 			 &aiu_spdif_encode_mux),
 };
 
 static const struct snd_soc_dapm_route aiu_cpu_dapm_routes[] = {
 	{ "I2S Encoder Playback", NULL, "I2S FIFO Playback" },
-	{ "SPDIF SRC SEL", "SPDIF", "SPDIF FIFO Playback" },
-	{ "SPDIF SRC SEL", "I2S", "I2S FIFO Playback" },
-	{ "SPDIF Encoder Playback", NULL, "SPDIF SRC SEL" },
+	{ "SPDIF SRC", "SPDIF", "SPDIF FIFO Playback" },
+	{ "SPDIF SRC", "I2S", "I2S FIFO Playback" },
+	{ "SPDIF Encoder Playback", NULL, "SPDIF SRC" },
 };
 
 int aiu_of_xlate_dai_name(struct snd_soc_component *component,
@@ -70,27 +70,7 @@ int aiu_of_xlate_dai_name(struct snd_soc_component *component,
 
 	return 0;
 }
-/*
-int aiu_add_component(struct device *dev,
-		      const struct snd_soc_component_driver *component_driver,
-		      struct snd_soc_dai_driver *dai_drv,
-		      int num_dai,
-		      const char *debugfs_prefix)
-{
-	struct snd_soc_component *component;
 
-	component = devm_kzalloc(dev, sizeof(*component), GFP_KERNEL);
-	if (!component)
-		return -ENOMEM;
-
-#ifdef CONFIG_DEBUG_FS
-	component->debugfs_prefix = debugfs_prefix;
-#endif
-
-	return snd_soc_add_component(dev, component, component_driver,
-				     dai_drv, num_dai);
-}
-*/
 static int aiu_cpu_of_xlate_dai_name(struct snd_soc_component *component,
 				     struct of_phandle_args *args,
 				     const char **dai_name)
@@ -337,7 +317,7 @@ static int aiu_probe(struct platform_device *pdev)
 	}
  
 	/* Register the codec control component */
-	ret = aiu_hdmi_ctrl_register_component(dev);
+	ret = aiu_codec_ctrl_register_component(dev);
 	if (ret) {
 		dev_err(dev, "Failed to register codec control component\n");
 		goto err;

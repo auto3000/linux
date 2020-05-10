@@ -260,67 +260,38 @@
 					#sound-dai-cells = <0>;
 				};
 			};
+
+			audin: audio-controller@a000 {
+				compatible = "amlogic,audin-gxbb";
+				#sound-dai-cells = <2>;
+				sound-name-prefix = "AUDIN_CPU";
+				reg = <0x0 0xa000 0x0 0x304>;
+				interrupts = <GIC_SPI 7 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 50 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "audin";
+				status = "disabled";
+				i2s_fifo_decode: audio-controller-0 {
+					sound-name-prefix = "I2S FIFO DECODE";
+					#sound-dai-cells = <0>;
+				};
+
+				spdif_fifo_decode: audio-controller-1 {
+					sound-name-prefix = "SPDIF FIFO DECODE";
+					#sound-dai-cells = <0>;
+				};
+
+				i2s_decoder: audio-controller-2 {
+					sound-name-prefix = "I2S Decoder";
+					#sound-dai-cells = <0>;
+				};
+				spdif_decoder: audio-controller-3 {
+					sound-name-prefix = "SPDIF Decoder";
+					#sound-dai-cells = <0>;
+				};
+			};
 /*
 				reset-names = "aiu", "audin";
-*/
-/*
-				aiu_i2s: audio-controller-0 {
-					compatible = "amlogic,meson-aiu-i2s";
-					pinctrl-0 = <&i2s_am_clk_pins>, <&i2s_out_ao_clk_pins>,
-						<&i2s_out_lr_clk_pins>, <&i2s_out_ch01_ao_pins>,
-						<&i2s_in_ch01_ao_pins>;
-					pinctrl-names = "default";
-					clocks = <&clkc CLKID_I2S_OUT>,
-						 <&clkc CLKID_MIXER_IFACE>,
-						 <&clkc CLKID_AOCLK_GATE>,
-						 <&clkc CLKID_CTS_AMCLK>;
-					clock-names = "fast", "iface", "bclks", "mclk";
-					#sound-dai-cells = <0>;
-					interrupts = <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>;
-					status = "okay";
-				};
-				aiu_spdif: audio-controller-1 {
-					#sound-dai-cells = <0>;
-					compatible = "amlogic,meson-aiu-spdif";
-					interrupts = <GIC_SPI 50 IRQ_TYPE_EDGE_RISING>;
-					status = "disabled";
-				};
-*/
-/*
-			aiu: bus@5400 {
-				compatible = "amlogic,aiu-bus", "syscon";
-				reg = <0x0 0x5400 0x0 0x2ac>;
-				status = "disabled";
-
-				i2s_fifo: i2s_fifo-0 {
-					compatible = "amlogic,aiu-i2s-fifo",
-						     "amlogic,aiu-fifo";
-					sound-name-prefix = "AIU I2S FIFO";
-					interrupts = <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>;
-					#sound-dai-cells = <0>;
-				};
-
-				spdif_fifo: audio-controller-1 {
-					compatible = "amlogic,aiu-spdif-fifo",
-						     "amlogic,aiu-fifo";
-					sound-name-prefix = "SPDIF FIFO";
-					interrupts = <GIC_SPI 50 IRQ_TYPE_EDGE_RISING>;
-					#sound-dai-cells = <0>;
-				};
-
-				i2s_encoder: i2s_encoder-1 {
-					compatible = "amlogic,aiu-i2s-encode";
-					sound-name-prefix = "AIU I2S ENCODER";
-					#sound-dai-cells = <0>;
-				};
-
-				spdif_encoder: audio-controller-3 {
-					compatible = "amlogic,aiu-spdif-encode";
-					sound-name-prefix = "SPDIF ENCODER";
-					#sound-dai-cells = <0>;
-				};
-
-			};
 */
 			uart_A: serial@84c0 {
 				compatible = "amlogic,meson-gx-uart";
