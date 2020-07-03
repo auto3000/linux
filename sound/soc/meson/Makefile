@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: (GPL-2.0 OR MIT)
 
+snd-soc-meson-audio-objs := audio.o
+snd-soc-meson-audio-objs += audio-codec-ctrl.o
+snd-soc-meson-audio-objs += aiu-encoder-i2s.o
+snd-soc-meson-audio-objs += aiu-encoder-spdif.o
+snd-soc-meson-audio-objs += aiu-fifo.o
+#snd-soc-meson-audio-objs += aiu-fifo-i2s.o
+snd-soc-meson-audio-objs += audin-decoder-i2s.o
+snd-soc-meson-audio-objs += audin-fifo.o
+#snd-soc-meson-audio-objs += audin-fifo-i2s.o
 snd-soc-meson-aiu-objs := aiu.o
 #snd-soc-meson-aiu-objs += aiu-extcodec-ctrl.o
 snd-soc-meson-aiu-objs += aiu-codec-ctrl.o
@@ -35,8 +44,9 @@ snd-soc-meson-g12a-tohdmitx-objs := g12a-tohdmitx.o
 snd-soc-meson-t9015-objs := t9015.o
 snd-soc-meson-gxbb-toacodec-objs := gxbb-toacodec.o
 
-obj-$(CONFIG_SND_MESON_AIU) += snd-soc-meson-aiu.o
-obj-$(CONFIG_SND_MESON_AUDIN) += snd-soc-meson-audin.o
+obj-$(CONFIG_SND_MESON_AUDIO) += snd-soc-meson-audio.o
+#obj-$(CONFIG_SND_MESON_AIU) += snd-soc-meson-aiu.o
+#obj-$(CONFIG_SND_MESON_AUDIN) += snd-soc-meson-audin.o
 obj-$(CONFIG_SND_MESON_AXG_FIFO) += snd-soc-meson-axg-fifo.o
 obj-$(CONFIG_SND_MESON_AXG_FRDDR) += snd-soc-meson-axg-frddr.o
 obj-$(CONFIG_SND_MESON_AXG_TODDR) += snd-soc-meson-axg-toddr.o

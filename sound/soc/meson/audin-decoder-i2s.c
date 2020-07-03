@@ -9,56 +9,28 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 
-#include "audin.h"
+#include "audio.h"
 
-#define AUDIN_I2SIN_CTRL_I2SIN_DIR		BIT(0)
-#define AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL		BIT(1)
-#define AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL	BIT(2)
-#define AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC		BIT(3)
-#define AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW	GENMASK(6, 4)
-#define AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT	BIT(7)
-#define AUDIN_I2SIN_CTRL_I2SIN_SIZE		GENMASK(9, 8)
-#define AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN		GENMASK(13, 10)
-#define AUDIN_I2SIN_CTRL_I2SIN_EN		BIT(15)
-
-#define AUDIN_FIFO0_CTRL_HOLD0_EN		BIT(19)
-#define AUDIN_FIFO0_CTRL_HOLD1_EN		BIT(20)
-#define AUDIN_FIFO0_CTRL_HOLD2_EN		BIT(21)
-#define AUDIN_FIFO0_CTRL_HOLD0_SEL		GENMASK(23, 22)
-#define AUDIN_FIFO0_CTRL_HOLD1_SEL		GENMASK(25, 24)
-#define AUDIN_FIFO0_CTRL_HOLD2_SEL		GENMASK(27, 26)
-
-/*
-static void audin_decoder_i2s_divider_enable(struct snd_soc_component *component,
-					     bool enable)
-{
-	snd_soc_component_update_bits(component, AIU_CLK_CTRL,
-				      AIU_CLK_CTRL_I2S_DIV_EN,
-				      enable ? AIU_CLK_CTRL_I2S_DIV_EN : 0);
-}
-*/
 static void audin_decoder_i2s_hold(struct snd_soc_component *component,
-				   bool enable)
+				   bool hold)
 {
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int debug_val;
+
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   AUDIN_I2SIN_CTRL_I2SIN_EN,
+			   hold ? 0 :AUDIN_I2SIN_CTRL_I2SIN_EN);
+	regmap_update_bits(audio->aiu_map, AIU_I2S_MISC,
+			   AIU_I2S_MISC_HOLD_EN,
+			   hold ? AIU_I2S_MISC_HOLD_EN : 0);
 /*
-	unsigned int desc = AUDIN_FIFO0_CTRL_HOLD0_EN |
-			    AUDIN_FIFO0_CTRL_HOLD1_EN |
-			    AUDIN_FIFO0_CTRL_HOLD2_EN ;
-
-	snd_soc_component_update_bits(component, AUDIN_FIFO0_CTRL,
-				      AUDIN_FIFO0_CTRL_HOLD0_EN |
-				      AUDIN_FIFO0_CTRL_HOLD1_EN |
-				      AUDIN_FIFO0_CTRL_HOLD2_EN |
-				      AUDIN_FIFO0_CTRL_HOLD0_SEL |
-				      AUDIN_FIFO0_CTRL_HOLD1_SEL |
-				      AUDIN_FIFO0_CTRL_HOLD2_SEL ,
-				      enable ? desc : 0);
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
+			   AIU_CLK_CTRL_MORE_ADC_EN,
+			   hold ? 0 : AIU_CLK_CTRL_MORE_ADC_EN);
 */
-	unsigned int desc = AUDIN_I2SIN_CTRL_I2SIN_EN;
-
-	snd_soc_component_update_bits(component, AUDIN_I2SIN_CTRL,
-				      AUDIN_I2SIN_CTRL_I2SIN_EN,
-				      enable ? desc : 0);
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &debug_val);
+	printk("audin_decoder_i2s_hold: AUDIN_I2SIN_CTRL=%x\n",
+		debug_val);
 }
 
 static int audin_decoder_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -87,66 +59,217 @@ static int audin_decoder_i2s_trigger(struct snd_pcm_substream *substream, int cm
 static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 				        struct snd_pcm_hw_params *params)
 {
-	/* Set as master by default */
-	unsigned int desc = AUDIN_I2SIN_CTRL_I2SIN_SIZE |
-			    AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
-			    AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC |
-			    AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
-			    AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
-			    AUDIN_I2SIN_CTRL_I2SIN_DIR ;
-	unsigned int ch;
+	struct audio *audio = snd_soc_component_get_drvdata(component);
 
-	desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW, 1);
+	unsigned int desc = 0;
+	unsigned int ch, val;
+	unsigned int desc_aiu = AIU_I2S_SOURCE_DESC_MODE_SPLIT; // | AIU_I2S_SOURCE_DESC_MSB_INV;
+	unsigned int desc_adc = AIU_MIX_ADCCFG_LRCLK_INVERT | AIU_MIX_ADCCFG_ADC_SEL;
+//	unsigned int desc_fmt = 0;
 
-	switch (params_channels(params)) {
-	case 1:
-	case 2:
-		ch = 0;
+	/* Reset required to update the pipeline */
+	regmap_write(audio->aiu_map, AIU_RST_SOFT, AIU_RST_SOFT_I2S_FAST);
+	regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
+
+	desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_LRCLK_SKEW, 1);
+
+	/* AUDIN_I2SIN_CTRL_I2SIN_SIZE: 0=16-bit, 1=18-bits, 2=20-bits, 3=24-bits */
+	switch (params_physical_width(params)) {
+	case 16: 
+		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 0);
+		desc_aiu |= AIU_I2S_SOURCE_DESC_MSB_POS;
+//		            AIU_I2S_SOURCE_DESC_MSB_INV;
+		desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_ADC_SIZE, 0);
+//		desc_fmt |= FIELD_PREP(AUDIN_DECODE_FMT_BIT_WIDTH, 0);  
 		break;
-	case 3:
-	case 4:
-		ch = 1;
+	case 24:
+		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 3);
+		desc_aiu |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 0) |
+			    AIU_I2S_SOURCE_DESC_MODE_24BIT; // |
+//			    AIU_I2S_SOURCE_DESC_MODE_32BIT;
+//		            AIU_I2S_SOURCE_DESC_MSB_INV;
+		desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_ADC_SIZE, 3);
+//		desc_fmt |= FIELD_PREP(AUDIN_DECODE_FMT_BIT_WIDTH, 3);  
 		break;
-	case 5:
-	case 6:
-		ch = 3;
-		break;
-	case 7:
-	case 8:
-		ch = 7;
+	case 32:
+		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 3);
+		desc_aiu |= AIU_I2S_SOURCE_DESC_SHIFT_BITS |
+			    AIU_I2S_SOURCE_DESC_MODE_24BIT |
+			    AIU_I2S_SOURCE_DESC_MODE_32BIT;
+//		            AIU_I2S_SOURCE_DESC_MSB_INV;
+		desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_ADC_SIZE, 3);
+//		desc_fmt |= FIELD_PREP(AUDIN_DECODE_FMT_BIT_WIDTH, 3);  
 		break;
 	default:
 		return -EINVAL;
 	}
-
+//	desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 3);
+	
+	switch (params_channels(params)) {
+	case 1:
+	case 2:
+		ch = 1;
+		break;
+	case 3:
+	case 4:
+		ch = 3;
+		break;
+	case 5:
+	case 6:
+		ch = 7;
+		break;
+	case 7:
+	case 8:
+//		ch = 0xf;
+		ch = 7;
+		desc_aiu |= AIU_I2S_SOURCE_DESC_MODE_8CH;
+		break;
+	default:
+		return -EINVAL;
+	}
 	desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN, ch);
 
+/*	// 0: 2-channels, 1: 8-channels
+	ch = (params_channels(params) == 8);
+	desc_fmt |= FIELD_PREP(AUDIN_DECODE_FMT_CHAN_CFG, ch);  
+	// 3: 2-channels, 0xFF: 8-channels
+	ch = (params_channels(params) == 8) ? 0xFF : 3;
+	desc_fmt |= FIELD_PREP(AUDIN_DECODE_FMT_CH_ALLOC ,ch);
+*/
+	regmap_update_bits(audio->aiu_map, AIU_MIX_ADCCFG,
+			   AIU_MIX_ADCCFG_LRCLK_INVERT |
+			   AIU_MIX_ADCCFG_LRCLK_SKEW |
+			   AIU_MIX_ADCCFG_ADC_SIZE |
+			   AIU_MIX_ADCCFG_ADC_SEL ,
+			   desc_adc);
+
+	regmap_update_bits(audio->aiu_map, AIU_I2S_SOURCE_DESC,
+			   AIU_I2S_SOURCE_DESC_MODE_8CH |
+			   AIU_I2S_SOURCE_DESC_MSB_INV |
+			   AIU_I2S_SOURCE_DESC_MSB_POS |
+			   AIU_I2S_SOURCE_DESC_MODE_24BIT |
+			   AIU_I2S_SOURCE_DESC_SHIFT_BITS |
+			   AIU_I2S_SOURCE_DESC_MODE_32BIT |
+			   AIU_I2S_SOURCE_DESC_MODE_SPLIT ,
+			   desc_aiu);
+	regmap_update_bits(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL,
+			  AIU_HDMI_CLK_DATA_CTRL_CLK_SEL |
+			  AIU_HDMI_CLK_DATA_CTRL_DATA_SEL,
+			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_CLK_SEL, 2) |
+			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, 2));
+
 	/* Set AUDIN_I2SIN_CTRL register with I2SIN_EN = 0 */
-	snd_soc_component_update_bits(component, AUDIN_I2SIN_CTRL,
-				      AUDIN_I2SIN_CTRL_I2SIN_EN |
-				      AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN |
-				      AUDIN_I2SIN_CTRL_I2SIN_SIZE |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW |
-				      AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_DIR ,
-				      desc);
-	desc |= AUDIN_I2SIN_CTRL_I2SIN_EN;
-	/* Set AUDIN_I2SIN_CTRL register with I2SIN_EN = 1 */
-	snd_soc_component_update_bits(component, AUDIN_I2SIN_CTRL,
-				      AUDIN_I2SIN_CTRL_I2SIN_EN |
-				      AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN |
-				      AUDIN_I2SIN_CTRL_I2SIN_SIZE |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW |
-				      AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_DIR ,
-				      desc);
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   AUDIN_I2SIN_CTRL_I2SIN_EN |
+			   AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN |
+			   AUDIN_I2SIN_CTRL_I2SIN_SIZE,
+			   desc);
+/*
+	regmap_update_bits(audio->audin_map, AUDIN_DECODE_FORMAT,
+			   AUDIN_DECODE_FMT_CHAN_CFG |
+			   AUDIN_DECODE_FMT_CH_ALLOC |
+			   AUDIN_DECODE_FMT_BIT_WIDTH,
+			   desc_fmt);
+*/
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	regmap_read(audio->aiu_map, AIU_I2S_SOURCE_DESC, &desc_aiu);
+	printk("audin_decoder_i2s_setup_desc: AUDIN_I2SIN_CTRL=%x, AIU_I2S_SOURCE_DESC=%x\n", 
+		val, desc_aiu);
 	return 0;
+}
+
+static int audin_decoder_i2s_set_clocks(struct snd_soc_component *component,
+				        struct snd_pcm_hw_params *params)
+{
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int srate = params_rate(params);
+	unsigned int fs, bs;
+	unsigned int val = 0;
+	unsigned int debug_val[2];
+
+	/* Get the oversampling factor */
+	fs = DIV_ROUND_CLOSEST(clk_get_rate(audio->aiu.clks[MCLK].clk), srate);
+
+	if (fs % 64)
+		return -EINVAL;
+
+	/* 
+	 * Send data MSB first, 
+	 * payload size 00 => 16 bits, alrclk = aoclk/32
+	 * payload size 11 => 24 bits, alrclk = aoclk/64 
+	*/
+	val |= AIU_I2S_DAC_CFG_MSB_FIRST;
+//	val |= (params_width(params) != 16) ? AIU_I2S_DAC_CFG_SIZE : 0;
+	regmap_update_bits(audio->aiu_map, AIU_I2S_DAC_CFG,
+			   AIU_I2S_DAC_CFG_MSB_FIRST, // |
+//			   AIU_I2S_DAC_CFG_SIZE ,
+			   val);
+
+	/* Set bclk to lrlck ratio */
+	regmap_update_bits(audio->aiu_map, AIU_CODEC_DAC_LRCLK_CTRL,
+			   AIU_CODEC_DAC_LRCLK_CTRL_DIV,
+			   FIELD_PREP(AIU_CODEC_DAC_LRCLK_CTRL_DIV,
+						 64 - 1));
+	regmap_update_bits(audio->aiu_map, AIU_CODEC_ADC_LRCLK_CTRL,
+			   AIU_CODEC_ADC_LRCLK_CTRL_DIV,
+			   FIELD_PREP(AIU_CODEC_ADC_LRCLK_CTRL_DIV,
+						 64 - 1));
+
+	/* Use CLK_MORE for mclk to bclk divider */
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL,
+			   AIU_CLK_CTRL_I2S_DIV, 0);
+
+	/*
+	 * NOTE: this HW is odd.
+	 * In most configuration, the i2s divider is 'mclk / blck'.
+	 * However, in 16 bits - 8ch mode, this factor needs to be
+	 * increased by 50% to get the correct output rate.
+	 * No idea why !
+	 */
+	bs = fs / 64;
+	if (params_width(params) == 16 && params_channels(params) == 8) {
+		if (bs % 2) {
+			dev_err(component->dev,
+				"Cannot increase i2s divider by 50%%\n");
+			return -EINVAL;
+		}
+		bs += bs / 2;
+	}
+
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
+			   AIU_CLK_CTRL_MORE_I2S_DIV,
+			   FIELD_PREP(AIU_CLK_CTRL_MORE_I2S_DIV,
+						 bs - 1));
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
+			   AIU_CLK_CTRL_MORE_ADC_EN |
+			   AIU_CLK_CTRL_MORE_ADC_DIV,
+			   AIU_CLK_CTRL_MORE_ADC_EN |
+			   FIELD_PREP(AIU_CLK_CTRL_MORE_ADC_DIV,
+						 bs - 1));
+
+	/* Make sure amclk is used for HDMI i2s as well */
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
+			   AIU_CLK_CTRL_MORE_HDMI_AMCLK,
+			   AIU_CLK_CTRL_MORE_HDMI_AMCLK);
+
+	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &debug_val[0]);
+	regmap_read(audio->aiu_map, AIU_CLK_CTRL_MORE, &debug_val[1]);
+	printk("audin_decoder_i2s_set_clocks: AIU_CLK_CTRL=%x, AIU_CLK_CTRL_MORE=%x\n", 
+		debug_val[0], debug_val[1]);
+	return 0;
+}
+
+static void audin_decoder_i2s_divider_enable(struct snd_soc_component *component,
+					     bool enable)
+{
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int debug_val;
+
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL,
+			   AIU_CLK_CTRL_I2S_DIV_EN,
+			   enable ? AIU_CLK_CTRL_I2S_DIV_EN : 0);
+	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &debug_val);
+	printk("audin_decoder_i2s_divider_enable: AIU_CLK_CTRL=%x\n", debug_val);
 }
 
 static int audin_decoder_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -156,6 +279,8 @@ static int audin_decoder_i2s_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_component *component = dai->component;
 	int ret;
 
+	/* Disable the clock while changing the settings */
+	audin_decoder_i2s_divider_enable(component, false);
 
 	ret = audin_decoder_i2s_setup_desc(component, params);
 	if (ret) {
@@ -163,10 +288,18 @@ static int audin_decoder_i2s_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	ret = audin_decoder_i2s_set_clocks(component, params);
+	if (ret) {
+		dev_err(dai->dev, "setting i2s clocks failed\n");
+		return ret;
+	}
+
+	audin_decoder_i2s_divider_enable(component, true);
+
 	return 0;
 }
 
-/*
+
 static int audin_decoder_i2s_hw_free(struct snd_pcm_substream *substream,
 				     struct snd_soc_dai *dai)
 {
@@ -176,42 +309,64 @@ static int audin_decoder_i2s_hw_free(struct snd_pcm_substream *substream,
 
 	return 0;
 }
-*/
+
 static int audin_decoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
-	struct snd_soc_component *component = dai->component;
+//	struct snd_soc_component *component = dai->component;
+	struct audio *audio = dev_get_drvdata(dai->dev);
 	unsigned int inv = fmt & SND_SOC_DAIFMT_INV_MASK;
-	unsigned int val = 0;
+	unsigned int audin_val = 0;
+	unsigned int aiu_val = 0;
+	unsigned int adc_val = 0;
 	unsigned int skew;
+//	unsigned int desc = 0;
+	unsigned int debug_val = 0;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	/* CPU Master / Codec Slave */
 	case SND_SOC_DAIFMT_CBS_CFS:
-		val |= 	AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
-			AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
-			AUDIN_I2SIN_CTRL_I2SIN_DIR;
+		audin_val |= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
+			     AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
+			     AUDIN_I2SIN_CTRL_I2SIN_DIR;
+		adc_val |= AIU_MIX_ADCCFG_ADC_SEL;
+		aiu_val |= AIU_CLK_CTRL_CLK_SRC;
+		printk("audin_decoder_i2s_set_fmt: CPU Master / Codec Slave\n");
 		break;
 	/* CPU Slave / Codec Master */
 	case SND_SOC_DAIFMT_CBM_CFM:
+		printk("audin_decoder_i2s_set_fmt: CPU Slave / Codec Master (!!)\n");
 		break;
 	default:
 		return -EINVAL;
 	}
-
 	
 	if (inv == SND_SOC_DAIFMT_NB_IF ||
-	    inv == SND_SOC_DAIFMT_IB_IF)
-		val |= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+	    inv == SND_SOC_DAIFMT_IB_IF) {
+		audin_val |= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT; //1 always??
+		aiu_val |= AIU_CLK_CTRL_LRCLK_INVERT;
+		adc_val |= AIU_MIX_ADCCFG_LRCLK_INVERT;
+	}
 
-	/*
+	/*  */
 	if (inv == SND_SOC_DAIFMT_IB_NF ||
-	    inv == SND_SOC_DAIFMT_IB_IF)
-		val |= AUDIN_I2SIN_CTRL_I2SIN_CLK_INVT;
-	*/
+	    inv == SND_SOC_DAIFMT_IB_IF) {
+		aiu_val |= AIU_CLK_CTRL_AOCLK_INVERT;
+		adc_val |= AIU_MIX_ADCCFG_AOCLK_INVERT;
+		audin_val |= AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC;
+	}
+/*
+	if (inv == SND_SOC_DAIFMT_IB_NF)  
+		audin_val |= AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC;
+*/	
 	/* Signal skew */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
-		val ^= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+		/* Invert sample clock for i2s */
+		audin_val ^= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+		aiu_val ^= AIU_CLK_CTRL_LRCLK_INVERT;
+		adc_val ^= AIU_MIX_ADCCFG_LRCLK_INVERT;
+		// 0:Left justify, 1:right justified, 2:I2S, 3: DSP
+//		desc |= FIELD_PREP(AUDIN_DECODE_FMT_FMT_SELECT, 2);  
 		skew = 1;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
@@ -221,22 +376,47 @@ static int audin_decoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
-	val |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW, skew);
-
-	snd_soc_component_update_bits(component, AUDIN_I2SIN_CTRL,
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW |
-				      AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
-				      AUDIN_I2SIN_CTRL_I2SIN_DIR ,
-				      val);
+	audin_val |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW, skew);
+	aiu_val |= FIELD_PREP(AIU_CLK_CTRL_LRCLK_SKEW, skew);
+	adc_val |= FIELD_PREP(AIU_MIX_ADCCFG_LRCLK_SKEW, skew);
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
+			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW |
+			   AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC |
+			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
+			   AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
+			   AUDIN_I2SIN_CTRL_I2SIN_DIR ,
+			   audin_val);
+	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL,
+			   AIU_CLK_CTRL_LRCLK_INVERT |
+			   AIU_CLK_CTRL_AOCLK_INVERT |
+			   AIU_CLK_CTRL_LRCLK_SKEW,
+			   aiu_val);
+	regmap_update_bits(audio->aiu_map, AIU_MIX_ADCCFG,
+			   AIU_MIX_ADCCFG_ADC_SEL |
+			   AIU_MIX_ADCCFG_LRCLK_INVERT |
+			   AIU_MIX_ADCCFG_AOCLK_INVERT |
+			   AIU_MIX_ADCCFG_LRCLK_SKEW,
+			   adc_val);
+/*
+	desc |= AUDIN_DECODE_FMT_HDMI_TX |	// 0:spdif, 1:i2s
+		AUDIN_DECODE_FMT_NOSPDIF;	// 0:one bit, 1:i2s
+	       
+	regmap_update_bits(audio->audin_map, AUDIN_DECODE_FORMAT,
+			   AUDIN_DECODE_FMT_NOSPDIF |
+			   AUDIN_DECODE_FMT_HDMI_TX |
+			   AUDIN_DECODE_FMT_FMT_SELECT,
+			   desc);
+*/
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &debug_val);
+	printk("audin_decoder_i2s_set_fmt: AUDIN_I2SIN_CTRL=%x\n", debug_val);
 	return 0;
 }
 
 static int audin_decoder_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
-				      unsigned int freq, int dir)
+				        unsigned int freq, int dir)
 {
-	struct audin *audin = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
 	int ret;
 
 	if (WARN_ON(clk_id != 0))
@@ -245,14 +425,14 @@ static int audin_decoder_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	if (dir == SND_SOC_CLOCK_IN)
 		return 0;
 
-	ret = clk_set_rate(audin->i2s.clks[MCLK].clk, freq);
+	ret = clk_set_rate(audio->aiu.clks[MCLK].clk, freq);
 	if (ret)
 		dev_err(dai->dev, "Failed to set sysclk to %uHz", freq);
 
 	return ret;
 }
 
-static const unsigned int hw_channels[] = {2, 8};
+static const unsigned int hw_channels[] = {1, 2, 8};
 static const struct snd_pcm_hw_constraint_list hw_channel_constraints = {
 	.list = hw_channels,
 	.count = ARRAY_SIZE(hw_channels),
@@ -263,9 +443,10 @@ static const struct snd_pcm_hw_constraint_list hw_channel_constraints = {
 static int audin_decoder_i2s_startup(struct snd_pcm_substream *substream,
 				     struct snd_soc_dai *dai)
 {
-	struct audin *audin = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
 	int ret;
 
+	/* Make sure the encoder gets either 1?, 2 or 8 channels? */
 	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
 					 SNDRV_PCM_HW_PARAM_CHANNELS,
 					 &hw_channel_constraints);
@@ -274,24 +455,33 @@ static int audin_decoder_i2s_startup(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	ret = clk_bulk_prepare_enable(audio->audin.clk_num, audio->audin.clks);
+	if (ret)
+		dev_err(dai->dev, "failed to enable audin i2s clocks\n");
+
+	ret = clk_bulk_prepare_enable(audio->aiu.clk_num, audio->aiu.clks);
+	if (ret)
+		dev_err(dai->dev, "failed to enable aiu i2s clocks\n");
+
 	return ret;
 }
 
 static void audin_decoder_i2s_shutdown(struct snd_pcm_substream *substream,
 				       struct snd_soc_dai *dai)
 {
-	struct audin *audin = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
 
-	clk_bulk_disable_unprepare(audin->i2s.clk_num, audin->i2s.clks);
+	clk_bulk_disable_unprepare(audio->audin.clk_num, audio->audin.clks);
+	clk_bulk_disable_unprepare(audio->aiu.clk_num, audio->aiu.clks);
 }
 
 
 const struct snd_soc_dai_ops audin_decoder_i2s_dai_ops = {
-	.trigger	= audin_decoder_i2s_trigger,
-	.hw_params	= audin_decoder_i2s_hw_params,
-//	.hw_free	= audin_decoder_i2s_hw_free,
 	.set_fmt	= audin_decoder_i2s_set_fmt,
 	.set_sysclk	= audin_decoder_i2s_set_sysclk,
+	.hw_params	= audin_decoder_i2s_hw_params,
+	.trigger	= audin_decoder_i2s_trigger,
+	.hw_free	= audin_decoder_i2s_hw_free,
 	.startup	= audin_decoder_i2s_startup,
 	.shutdown	= audin_decoder_i2s_shutdown,
 };

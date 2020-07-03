@@ -124,15 +124,15 @@ static int multi_fx_init(struct i2c_client *i2c_client)
 					    "true_bypass_left", GPIOD_OUT_HIGH);
 	multi_fx_gpios->true_bypass_right = devm_gpiod_get(&i2c_client->dev, 
 					    "true_bypass_right", GPIOD_OUT_HIGH);
-	/* Gain GPIOs are active low*/
+	/* Gain GPIOs are active high */
 	multi_fx_gpios->gain_left_low  = devm_gpiod_get(&i2c_client->dev, 
-					    "gain_left_low", GPIOD_OUT_LOW);
+					    "gain_left_low", GPIOD_OUT_HIGH);
 	multi_fx_gpios->gain_left_mid  = devm_gpiod_get(&i2c_client->dev, 
-					    "gain_left_mid", GPIOD_OUT_LOW);
+					    "gain_left_mid", GPIOD_OUT_HIGH);
 	multi_fx_gpios->gain_right_low = devm_gpiod_get(&i2c_client->dev, 
-					    "gain_right_low", GPIOD_OUT_LOW);
+					    "gain_right_low", GPIOD_OUT_HIGH);
 	multi_fx_gpios->gain_right_mid = devm_gpiod_get(&i2c_client->dev, 
-					    "gain_right_mid", GPIOD_OUT_LOW);
+					    "gain_right_mid", GPIOD_OUT_HIGH);
 	/* Input impedance gpios */
 	multi_fx_gpios->zmic_left   = devm_gpiod_get(&i2c_client->dev, 
 					    "zmic_left", GPIOD_OUT_HIGH);
@@ -166,11 +166,11 @@ static int multi_fx_init(struct i2c_client *i2c_client)
 	/* Initialize gpios*/
 	gpiod_set_value(multi_fx_gpios->true_bypass_left, 0);
 	gpiod_set_value(multi_fx_gpios->true_bypass_right, 0);
-	/* Gain bits are active low: 1 => assert = low level, 0 => deassert = high level
+	/* Gain bits are active high: 1 => assert = high level, 0 => deassert = low level
 			      ML
-		High gain   = 11 => 24.3 dB
-		Mid gain    = 10 => 11.8 dB
-		Low gain    = 01 => -0.7 dB
+		High gain   = 11 => 21.0 dB
+		Mid gain    = 10 => 11.0 dB
+		Low gain    = 01 => 20.0 dB
 		Lowest gain = 00 => -1.0 dB
 	*/
 	gpiod_set_value(multi_fx_gpios->gain_left_low, 0);
@@ -627,20 +627,20 @@ static const struct snd_kcontrol_new tbypass_r =
 /*
 		      ML
 	Lowest gain = 00 => -1.00 dB
-	Low gain    = 01 => -0.70 dB
-	Mid gain    = 10 => 11.80 dB
-	High gain   = 11 => 24.30 dB
+	Low gain    = 01 => 20.00 dB
+	Mid gain    = 10 => 11.00 dB
+	High gain   = 11 => 21.00 dB
 
 static const unsigned int gains_tlv[] = {
     TLV_DB_RANGE_HEAD(4),
     0, 0, TLV_DB_SCALE_ITEM(-100, 0, 0),
-    1, 1, TLV_DB_SCALE_ITEM( -70, 0, 0),
-    2, 2, TLV_DB_SCALE_ITEM(1180, 0, 0),
-    3, 3, TLV_DB_SCALE_ITEM(2430, 0, 0),
+    1, 1, TLV_DB_SCALE_ITEM(2000, 0, 0),
+    2, 2, TLV_DB_SCALE_ITEM(1100, 0, 0),
+    3, 3, TLV_DB_SCALE_ITEM(2100, 0, 0),
 };
 */
 static const char *const gain_text[4] = {
-	"-1dB", "-0.7dB", "11.8dB", "24.3dB"
+	"-1dB", "20dB", "11dB", "21dB"
 };
 
 static  SOC_ENUM_SINGLE_EXT_DECL(gain_enum, gain_text);

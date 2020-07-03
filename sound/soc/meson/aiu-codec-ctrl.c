@@ -10,7 +10,6 @@
 
 #include <dt-bindings/sound/meson-aiu.h>
 
-#include "aiu.h"
 #include "meson-codec-glue.h"
 
 #define CTRL_CLK_SEL		GENMASK(1, 0)

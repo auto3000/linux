@@ -17,6 +17,8 @@ struct snd_soc_dai;
 struct snd_pcm_hw_params;
 struct platform_device;
 
+/* Defined on audio.h */
+/*
 struct aiu_fifo {
 	struct snd_pcm_hardware *pcm;
 	unsigned int mem_offset;
@@ -24,13 +26,14 @@ struct aiu_fifo {
 	struct clk *pclk;
 	int irq;
 };
-
+*/
 int aiu_fifo_dai_probe(struct snd_soc_dai *dai);
 int aiu_fifo_dai_remove(struct snd_soc_dai *dai);
-
+/*
 snd_pcm_uframes_t aiu_fifo_pointer(struct snd_soc_component *component,
 				   struct snd_pcm_substream *substream);
-
+snd_pcm_uframes_t aiu_fifo_pointer(struct snd_pcm_substream *substream);
+*/
 int aiu_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
 		     struct snd_soc_dai *dai);
 int aiu_fifo_prepare(struct snd_pcm_substream *substream,

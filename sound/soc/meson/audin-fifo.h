@@ -19,6 +19,8 @@ struct snd_soc_dai;
 struct snd_pcm_hw_params;
 struct platform_device;
 
+/* audio_fifo defined in audio.h */
+/*
 struct audin_fifo {
 	struct snd_pcm_hardware *pcm;
 	unsigned int mem_offset;
@@ -26,7 +28,7 @@ struct audin_fifo {
 	struct clk *pclk;
 	int irq;
 };
-
+*/
 enum audin_fifo0_ctrl_din_sel_enum {
 	SPDIF = 0,
 	I2S,
@@ -37,10 +39,11 @@ enum audin_fifo0_ctrl_din_sel_enum {
 
 int audin_fifo_dai_probe(struct snd_soc_dai *dai);
 int audin_fifo_dai_remove(struct snd_soc_dai *dai);
-
+/*
 snd_pcm_uframes_t audin_fifo_pointer(struct snd_soc_component *component,
 				   struct snd_pcm_substream *substream);
-
+snd_pcm_uframes_t audin_fifo_pointer(struct snd_pcm_substream *substream);
+*/
 int audin_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
 		     struct snd_soc_dai *dai);
 int audin_fifo_prepare(struct snd_pcm_substream *substream,

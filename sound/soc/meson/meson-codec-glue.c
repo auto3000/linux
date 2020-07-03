@@ -52,7 +52,7 @@ meson_codec_glue_get_output(struct snd_soc_dapm_widget *w)
 		    snd_soc_dapm_to_component(p->sink->dapm))
 			continue;
 
-		if (p->sink->id == snd_soc_dapm_dai_in)
+		if (p->sink->id == snd_soc_dapm_dai_out)
 			return p->sink;
 
 		out = meson_codec_glue_get_output(p->sink);
@@ -65,34 +65,34 @@ meson_codec_glue_get_output(struct snd_soc_dapm_widget *w)
 EXPORT_SYMBOL_GPL(meson_codec_glue_get_output);
 
 void meson_codec_glue_input_set_data(struct snd_soc_dai *dai,
-				     struct meson_codec_glue_input *data)
+				     struct meson_codec_glue *data)
 {
 	dai->playback_dma_data = data;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_set_data);
 
 void meson_codec_glue_output_set_data(struct snd_soc_dai *dai,
-				      struct meson_codec_glue_input *data)
+				      struct meson_codec_glue *data)
 {
 	dai->capture_dma_data = data;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_output_set_data);
 
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_input_get_data(struct snd_soc_dai *dai)
 {
 	return dai->playback_dma_data;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_input_get_data);
 
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_output_get_data(struct snd_soc_dai *dai)
 {
 	return dai->capture_dma_data;
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_output_get_data);
 
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_widget *in =
@@ -108,7 +108,7 @@ meson_codec_glue_output_get_input_data(struct snd_soc_dapm_widget *w)
 }
 EXPORT_SYMBOL_GPL(meson_codec_glue_output_get_input_data);
 
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_input_get_output_data(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_widget *out =
@@ -128,7 +128,7 @@ int meson_codec_glue_input_hw_params(struct snd_pcm_substream *substream,
 				     struct snd_pcm_hw_params *params,
 				     struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_input_get_data(dai);
 
 	data->params.rates = snd_pcm_rate_to_rate_bit(params_rate(params));
@@ -147,7 +147,7 @@ int meson_codec_glue_output_hw_params(struct snd_pcm_substream *substream,
 				      struct snd_pcm_hw_params *params,
 				      struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_output_get_data(dai);
 
 	data->params.rates = snd_pcm_rate_to_rate_bit(params_rate(params));
@@ -165,7 +165,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_output_hw_params);
 int meson_codec_glue_input_set_fmt(struct snd_soc_dai *dai,
 				   unsigned int fmt)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_input_get_data(dai);
 
 	/* Save the source stream format for the downstream link */
@@ -177,7 +177,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_input_set_fmt);
 int meson_codec_glue_output_set_fmt(struct snd_soc_dai *dai,
 				    unsigned int fmt)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_output_get_data(dai);
 
 	/* Save the sink stream format for the upstream link */
@@ -190,8 +190,8 @@ int meson_codec_glue_output_startup(struct snd_pcm_substream *substream,
 				    struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct meson_codec_glue_input *data =
-		meson_codec_glue_output_get_input_data(dai->capture_widget);
+	struct meson_codec_glue *data =
+		meson_codec_glue_output_get_input_data(dai->playback_widget);
 
 	if (!data)
 		return -ENODEV;
@@ -215,8 +215,8 @@ int meson_codec_glue_input_startup(struct snd_pcm_substream *substream,
 				   struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct meson_codec_glue_input *data =
-		meson_codec_glue_input_get_output_data(dai->playback_widget);
+	struct meson_codec_glue *data =
+		meson_codec_glue_input_get_output_data(dai->capture_widget);
 
 	if (!data)
 		return -ENODEV;
@@ -226,7 +226,7 @@ int meson_codec_glue_input_startup(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	/* Replace link params with the input params */
+	/* Replace link params with the output params */
 	rtd->dai_link->params = &data->params;
 
 	if (!data->fmt)
@@ -238,7 +238,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_input_startup);
 
 int meson_codec_glue_input_dai_probe(struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data;
+	struct meson_codec_glue *data;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -251,7 +251,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_input_dai_probe);
 
 int meson_codec_glue_output_dai_probe(struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data;
+	struct meson_codec_glue *data;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -264,7 +264,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_output_dai_probe);
 
 int meson_codec_glue_input_dai_remove(struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_input_get_data(dai);
 
 	kfree(data);
@@ -274,7 +274,7 @@ EXPORT_SYMBOL_GPL(meson_codec_glue_input_dai_remove);
 
 int meson_codec_glue_output_dai_remove(struct snd_soc_dai *dai)
 {
-	struct meson_codec_glue_input *data =
+	struct meson_codec_glue *data =
 		meson_codec_glue_output_get_data(dai);
 
 	kfree(data);

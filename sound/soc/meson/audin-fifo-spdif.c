@@ -9,6 +9,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 
+#include "aiu.h"
 #include "audin.h"
 #include "audin-fifo.h"
 

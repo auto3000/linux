@@ -12,8 +12,10 @@
 #define CPU_I2S_DECODER		2
 #define CPU_SPDIF_DECODER	3
 
-#define CLK_OUT		0
-#define CLK_EXT		1
-#define CLK_INT		2
+#define CODEC_IN0		0
+#define CODEC_IN1		1
+#define CODEC_IN2		2
+#define CODEC_IN3		3
+#define CODEC_OUT		4
 
 #endif /* __DT_MESON_AUDIN_H */

@@ -9,50 +9,149 @@
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 
+#include "audio.h"
 #include "aiu-fifo.h"
 
-#define AIU_MEM_START			0x00
-#define AIU_MEM_RD			0x04
-#define AIU_MEM_END			0x08
-#define AIU_MEM_MASKS			0x0C
-#define AIU_MEM_MASK_CH_RD 		GENMASK(7, 0)
-#define AIU_MEM_MASK_CH_MEM 		GENMASK(15, 8)
-#define AIU_MEM_CONTROL			0x10
-#define AIU_MEM_CONTROL_INIT 		BIT(0)
-#define AIU_MEM_CONTROL_FILL_EN 	BIT(1)
-#define AIU_MEM_CONTROL_EMPTY_EN 	BIT(2)
-
-static struct snd_soc_dai *aiu_fifo_dai(struct snd_pcm_substream *ss)
+int aiu_fifo_hw_params(struct snd_pcm_substream *substream,
+		       struct snd_pcm_hw_params *params,
+		       struct snd_soc_dai *dai)
 {
-	struct snd_soc_pcm_runtime *rtd = ss->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	struct audio_fifo *fifo = dai->playback_dma_data;
+	dma_addr_t end;
+	int ret;
+	unsigned int debug_val[2];
 
-	return rtd->cpu_dai;
+	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+	if (ret < 0)
+		return ret;
+
+	/* Setup the fifo boundaries */
+	end = runtime->dma_addr + runtime->dma_bytes - fifo->fifo_block;
+	regmap_write(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_START_OFF,
+		     runtime->dma_addr);
+	regmap_write(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_RD_OFF,
+		     runtime->dma_addr);
+	regmap_write(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_END_OFF,
+		     end);
+
+	/* Setup the fifo to read all the memory - no skip */
+/*
+	regmap_update_bits(audio->aiu_map,
+			   fifo->mem_offset + AIU_MEM_I2S_MASKS_OFF,
+			   AIU_MEM_I2S_MASKS_CH_RD | AIU_MEM_I2S_MASKS_CH_MEM,
+			   FIELD_PREP(AIU_MEM_I2S_MASKS_CH_RD, 0xff) |
+			   FIELD_PREP(AIU_MEM_I2S_MASKS_CH_MEM, 0xff));
+*/
+	regmap_read(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_START_OFF, &debug_val[0]);
+	regmap_read(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_RD_OFF, &debug_val[1]);
+	printk("aiu_fifo_hw_params: AIU_MEM_I2S_START=%x, AIU_MEM_I2S_RD=%x\n", 
+		debug_val[0], debug_val[1]);
+	return 0;
 }
 
-snd_pcm_uframes_t aiu_fifo_pointer(struct snd_soc_component *component,
-				   struct snd_pcm_substream *substream)
+static int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
+				  struct snd_pcm_hw_params *params,
+				  struct snd_soc_dai *dai)
 {
-	struct snd_soc_dai *dai = aiu_fifo_dai(substream);
-	struct aiu_fifo *fifo = dai->playback_dma_data;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	unsigned int addr;
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	struct audio_fifo *fifo = dai->playback_dma_data;
+	unsigned int val;
+	int ret;
 
-	snd_soc_component_read(component, fifo->mem_offset + AIU_MEM_RD,
-			       &addr);
+	ret = aiu_fifo_hw_params(substream, params, dai);
+	if (ret)
+		return ret;
 
-	return bytes_to_frames(runtime, addr - (unsigned int)runtime->dma_addr);
+	switch (params_physical_width(params)) {
+	case 16:
+		val = AIU_MEM_I2S_CONTROL_MODE_16BIT;
+		break;
+	case 24:
+	case 32:
+		val = 0;
+		break;
+	default:
+		dev_err(dai->dev, "Unsupported physical width %u\n",
+			params_physical_width(params));
+		return -EINVAL;
+	}
+
+	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_CONTROL,
+			  AIU_MEM_I2S_CONTROL_MODE_16BIT,
+			  val);
+
+	/* Set Channel Mask to 0xffff for split mode */
+	val = FIELD_PREP(AIU_MEM_I2S_MASKS_CH_MEM |
+			 AIU_MEM_I2S_MASKS_CH_RD, 
+			 0xffff);
+	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_MASKS, 
+			  AIU_MEM_I2S_MASKS_CH_MEM |
+			  AIU_MEM_I2S_MASKS_CH_RD,
+			  val);
+
+	/* Setup the irq periodicity */
+	val = params_period_bytes(params) / fifo->fifo_block;
+	val = FIELD_PREP(AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
+	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_MASKS,
+			  AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
+	return 0;
+}
+
+int aiu_fifo_prepare(struct snd_pcm_substream *substream,
+		     struct snd_soc_dai *dai)
+{
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	struct audio_fifo *fifo = dai->playback_dma_data;
+	unsigned int debug_val;
+
+	regmap_update_bits(audio->aiu_map,
+			   fifo->mem_offset + AIU_MEM_I2S_CONTROL_OFF,
+			   AIU_MEM_I2S_CONTROL_INIT,
+			   AIU_MEM_I2S_CONTROL_INIT);
+	regmap_update_bits(audio->aiu_map,
+			   fifo->mem_offset + AIU_MEM_I2S_CONTROL_OFF,
+			   AIU_MEM_I2S_CONTROL_INIT, 0);
+	regmap_read(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_CONTROL_OFF, &debug_val);
+	printk("aiu_fifo_prepare: AIU_MEM_I2S_CONTROL=%x\n", debug_val);
+	return 0;
+}
+
+static int aiu_fifo_i2s_prepare(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	int ret;
+
+	ret = aiu_fifo_prepare(substream, dai);
+	if (ret)
+		return ret;
+
+	regmap_update_bits(audio->aiu_map,
+			  AIU_MEM_I2S_BUF_CNTL,
+			  AIU_MEM_I2S_BUF_CNTL_INIT,
+			  AIU_MEM_I2S_BUF_CNTL_INIT);
+	regmap_update_bits(audio->aiu_map,
+			  AIU_MEM_I2S_BUF_CNTL,
+			  AIU_MEM_I2S_BUF_CNTL_INIT, 0);
+
+	return 0;
 }
 
 static void aiu_fifo_enable(struct snd_soc_dai *dai, bool enable)
 {
-	struct snd_soc_component *component = dai->component;
-	struct aiu_fifo *fifo = dai->playback_dma_data;
-	unsigned int en_mask = (AIU_MEM_CONTROL_FILL_EN |
-				AIU_MEM_CONTROL_EMPTY_EN);
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	struct audio_fifo *fifo = dai->playback_dma_data;
+	unsigned int en_mask = (AIU_MEM_I2S_CONTROL_FILL_EN |
+				AIU_MEM_I2S_CONTROL_EMPTY_EN);
+	unsigned int debug_val;
 
-	snd_soc_component_update_bits(component,
-				      fifo->mem_offset + AIU_MEM_CONTROL,
-				      en_mask, enable ? en_mask : 0);
+	regmap_update_bits(audio->aiu_map,
+			   fifo->mem_offset + AIU_MEM_I2S_CONTROL_OFF,
+			   en_mask, enable ? en_mask : 0);
+	regmap_read(audio->aiu_map, fifo->mem_offset + AIU_MEM_I2S_CONTROL_OFF, &debug_val);
+	printk("aiu_fifo_enable: AIU_MEM_I2S_CONTROL=%x\n", debug_val);
 }
 
 int aiu_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -76,53 +175,23 @@ int aiu_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
 	return 0;
 }
 
-int aiu_fifo_prepare(struct snd_pcm_substream *substream,
-		     struct snd_soc_dai *dai)
+static int aiu_fifo_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
+				struct snd_soc_dai *dai)
 {
-	struct snd_soc_component *component = dai->component;
-	struct aiu_fifo *fifo = dai->playback_dma_data;
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
+	unsigned int val;
 
-	snd_soc_component_update_bits(component,
-				      fifo->mem_offset + AIU_MEM_CONTROL,
-				      AIU_MEM_CONTROL_INIT,
-				      AIU_MEM_CONTROL_INIT);
-	snd_soc_component_update_bits(component,
-				      fifo->mem_offset + AIU_MEM_CONTROL,
-				      AIU_MEM_CONTROL_INIT, 0);
-	return 0;
-}
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		regmap_write(audio->aiu_map, AIU_RST_SOFT,
+			     AIU_RST_SOFT_I2S_FAST);
+		regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
+		break;
+	}
 
-int aiu_fifo_hw_params(struct snd_pcm_substream *substream,
-		       struct snd_pcm_hw_params *params,
-		       struct snd_soc_dai *dai)
-{
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct snd_soc_component *component = dai->component;
-	struct aiu_fifo *fifo = dai->playback_dma_data;
-	dma_addr_t end;
-	int ret;
-
-	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
-	if (ret < 0)
-		return ret;
-
-	/* Setup the fifo boundaries */
-	end = runtime->dma_addr + runtime->dma_bytes - fifo->fifo_block;
-	snd_soc_component_write(component, fifo->mem_offset + AIU_MEM_START,
-				runtime->dma_addr);
-	snd_soc_component_write(component, fifo->mem_offset + AIU_MEM_RD,
-				runtime->dma_addr);
-	snd_soc_component_write(component, fifo->mem_offset + AIU_MEM_END,
-				end);
-
-	/* Setup the fifo to read all the memory - no skip */
-	snd_soc_component_update_bits(component,
-				      fifo->mem_offset + AIU_MEM_MASKS,
-				      AIU_MEM_MASK_CH_RD | AIU_MEM_MASK_CH_MEM,
-				      FIELD_PREP(AIU_MEM_MASK_CH_RD, 0xff) |
-				      FIELD_PREP(AIU_MEM_MASK_CH_MEM, 0xff));
-
-	return 0;
+	return aiu_fifo_trigger(substream, cmd, dai);
 }
 
 int aiu_fifo_hw_free(struct snd_pcm_substream *substream,
@@ -136,14 +205,14 @@ static irqreturn_t aiu_fifo_isr(int irq, void *dev_id)
 	struct snd_pcm_substream *playback = dev_id;
 
 	snd_pcm_period_elapsed(playback);
-
+	printk("aiu_fifo_isr\n");
 	return IRQ_HANDLED;
 }
 
 int aiu_fifo_startup(struct snd_pcm_substream *substream,
 		     struct snd_soc_dai *dai)
 {
-	struct aiu_fifo *fifo = dai->playback_dma_data;
+	struct audio_fifo *fifo = dai->playback_dma_data;
 	int ret;
 
 	snd_soc_set_runtime_hwparams(substream, fifo->pcm);
@@ -168,8 +237,10 @@ int aiu_fifo_startup(struct snd_pcm_substream *substream,
 	if (ret)
 		return ret;
 
-	ret = request_irq(fifo->irq, aiu_fifo_isr, 0, dev_name(dai->dev),
+	ret = request_irq(fifo->irq, aiu_fifo_isr, 0, fifo->irq_name,
 			  substream);
+	printk("aiu_fifo_startup: devname=%s, irq_name=%s\n", dev_name(dai->dev), 
+		fifo->irq_name);
 	if (ret)
 		clk_disable_unprepare(fifo->pclk);
 
@@ -179,31 +250,15 @@ int aiu_fifo_startup(struct snd_pcm_substream *substream,
 void aiu_fifo_shutdown(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
-	struct aiu_fifo *fifo = dai->playback_dma_data;
+	struct audio_fifo *fifo = dai->playback_dma_data;
 
 	free_irq(fifo->irq, substream);
 	clk_disable_unprepare(fifo->pclk);
 }
 
-int aiu_fifo_pcm_new(struct snd_soc_pcm_runtime *rtd,
-		     struct snd_soc_dai *dai)
-{
-	struct snd_pcm_substream *substream =
-		rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
-	struct snd_card *card = rtd->card->snd_card;
-	struct aiu_fifo *fifo = dai->playback_dma_data;
-	size_t size = fifo->pcm->buffer_bytes_max;
-
-	snd_pcm_lib_preallocate_pages(substream,
-				      SNDRV_DMA_TYPE_DEV,
-				      card->dev, size, size);
-
-	return 0;
-}
-
 int aiu_fifo_dai_probe(struct snd_soc_dai *dai)
 {
-	struct aiu_fifo *fifo;
+	struct audio_fifo *fifo;
 
 	fifo = kzalloc(sizeof(*fifo), GFP_KERNEL);
 	if (!fifo)
@@ -221,62 +276,12 @@ int aiu_fifo_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
-/*
-int aiu_fifo_component_probe(struct snd_soc_component *component)
-{
-	struct device *dev = component->dev;
-	struct regmap *map;
+const struct snd_soc_dai_ops aiu_fifo_i2s_dai_ops = {
+	.hw_params	= aiu_fifo_i2s_hw_params,
+	.prepare	= aiu_fifo_i2s_prepare,
+	.trigger	= aiu_fifo_i2s_trigger,
+	.hw_free	= aiu_fifo_hw_free,
+	.startup	= aiu_fifo_startup,
+	.shutdown	= aiu_fifo_shutdown,
+};
 
-	map = syscon_node_to_regmap(dev->parent->of_node);
-	if (IS_ERR(map)) {
-		dev_err(dev, "Could not get regmap\n");
-		return PTR_ERR(map);
-	}
-
-	snd_soc_component_init_regmap(component, map);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(aiu_fifo_component_probe);
-
-int aiu_fifo_probe(struct platform_device *pdev)
-{
-	const struct aiu_fifo_match_data *data;
-	struct device *dev = &pdev->dev;
-	struct aiu_fifo *fifo;
-
-	data = of_device_get_match_data(dev);
-	if (!data) {
-		dev_err(dev, "failed to match device\n");
-		return -ENODEV;
-	}
-
-	fifo = devm_kzalloc(dev, sizeof(*fifo), GFP_KERNEL);
-	if (!fifo)
-		return -ENOMEM;
-	platform_set_drvdata(pdev, fifo);
-	fifo = data->hw;
-
-	fifo->pclk = devm_clk_get(dev, NULL);
-	if (IS_ERR(fifo->pclk)) {
-		if (PTR_ERR(fifo->pclk) != -EPROBE_DEFER)
-			dev_err(dev, "failed to get pclk: %ld\n",
-				PTR_ERR(fifo->pclk));
-		return PTR_ERR(fifo->pclk);
-	}
-
-	fifo->irq = platform_get_irq(pdev, 0);
-	if (fifo->irq <= 0) {
-		dev_err(dev, "Can't get irq\n");
-		return fifo->irq;
-	}
-
-	return devm_snd_soc_register_component(dev, data->component_drv,
-					       data->dai_drv, 1);
-}
-EXPORT_SYMBOL_GPL(aiu_fifo_probe);
-
-MODULE_DESCRIPTION("Amlogic AIU FIFO driver");
-MODULE_AUTHOR("Jerome Brunet <jbrunet@baylibre.com>");
-MODULE_LICENSE("GPL v2");
-*/

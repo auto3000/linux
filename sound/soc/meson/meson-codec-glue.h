@@ -9,13 +9,13 @@
 
 #include <sound/soc.h>
 
-struct meson_codec_glue_input {
+struct meson_codec_glue {
 	struct snd_soc_pcm_stream params;
 	unsigned int fmt;
 };
 
 /* Input helpers */
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_input_get_data(struct snd_soc_dai *dai);
 
 int meson_codec_glue_input_hw_params(struct snd_pcm_substream *substream,
@@ -29,7 +29,7 @@ int meson_codec_glue_input_dai_probe(struct snd_soc_dai *dai);
 int meson_codec_glue_input_dai_remove(struct snd_soc_dai *dai);
 
 /* Output helpers */
-struct meson_codec_glue_input *
+struct meson_codec_glue *
 meson_codec_glue_output_get_data(struct snd_soc_dai *dai);
 
 int meson_codec_glue_output_hw_params(struct snd_pcm_substream *substream,

@@ -13,10 +13,36 @@
 #include <sound/soc-dai.h>
 
 #include <dt-bindings/sound/meson-aiu.h>
-#include "aiu.h"
+#include "audio.h"
 #include "aiu-fifo.h"
 
 #define AIU_I2S_MISC_958_SRC_SHIFT 3
+
+const struct regmap_config aiu_regmap_cfg = {
+	.reg_bits	= 32,
+	.val_bits	= 32,
+	.reg_stride	= 4,
+	.max_register	= 0x2ac,
+};
+EXPORT_SYMBOL_GPL(aiu_regmap_cfg);
+
+const char * const aiu_i2s_ids[] = {
+	[PCLK]	= "i2s_pclk",
+	[AOCLK]	= "i2s_aoclk",
+	[MCLK]	= "i2s_mclk",
+	[MIXER]	= "i2s_mixer",
+};
+EXPORT_SYMBOL_GPL(aiu_i2s_ids);
+
+const char sizeof_aiu_i2s_ids = ARRAY_SIZE(aiu_i2s_ids);
+EXPORT_SYMBOL_GPL(sizeof_aiu_i2s_ids);
+
+const char * const aiu_spdif_ids[] = {
+	[PCLK]	= "spdif_pclk",
+	[AOCLK]	= "spdif_aoclk",
+	[MCLK]	= "spdif_mclk_sel"
+};
+const char sizeof_aiu_spdif_ids = ARRAY_SIZE(aiu_spdif_ids);
 
 static const char * const aiu_spdif_encode_sel_texts[] = {
 	"SPDIF", "I2S",
@@ -168,17 +194,10 @@ static struct snd_soc_dai_driver aiu_cpu_dai_drv[] = {
 	}
 };
 
-static const struct regmap_config aiu_regmap_cfg = {
-	.reg_bits	= 32,
-	.val_bits	= 32,
-	.reg_stride	= 4,
-	.max_register	= 0x2ac,
-};
-
-static int aiu_clk_bulk_get(struct device *dev,
-			    const char * const *ids,
-			    unsigned int num,
-			    struct aiu_interface *interface)
+int aiu_clk_bulk_get(struct device *dev,
+		     const char * const *ids,
+		     unsigned int num,
+		     struct aiu_interface *interface)
 {
 	struct clk_bulk_data *clks;
 	int i, ret;
@@ -198,21 +217,9 @@ static int aiu_clk_bulk_get(struct device *dev,
 	interface->clk_num = num;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(aiu_clk_bulk_get);
 
-static const char * const aiu_i2s_ids[] = {
-	[PCLK]	= "i2s_pclk",
-	[AOCLK]	= "i2s_aoclk",
-	[MCLK]	= "i2s_mclk",
-	[MIXER]	= "i2s_mixer",
-};
-
-static const char * const aiu_spdif_ids[] = {
-	[PCLK]	= "spdif_pclk",
-	[AOCLK]	= "spdif_aoclk",
-	[MCLK]	= "spdif_mclk_sel"
-};
-
-static int aiu_clk_get(struct device *dev)
+int aiu_clk_get(struct device *dev)
 {
 	struct aiu *aiu = dev_get_drvdata(dev);
 	int ret;
@@ -316,13 +323,15 @@ static int aiu_probe(struct platform_device *pdev)
 		return ret;
 	}
  
+	/* codec control component is registered on audio.c */
 	/* Register the codec control component */
+/*
 	ret = aiu_codec_ctrl_register_component(dev);
 	if (ret) {
 		dev_err(dev, "Failed to register codec control component\n");
 		goto err;
 	}
-
+*/
 	return 0;
 err:
 	snd_soc_unregister_component(dev);

@@ -74,16 +74,12 @@ int meson_card_parse_dai(struct snd_soc_card *card,
 	int ret, num_pcms, i;
 
 	if (!dai_name || !dai_of_node || !node) {
-		printk("meson_card_parse_dai: dai_name=%s, dai_of_node=%pr, node=%pr", 
-			dai_name[0], dai_of_node, node);
 		return -EINVAL;
 	}
 	num_pcms = of_count_phandle_with_args(node, "sound-dai", "#sound-dai-cells");
-	printk("meson_card_parse_dai: num_pcms = %d", num_pcms);
 	for(i = 0; i < num_pcms; i++) {
 		ret = of_parse_phandle_with_args(node, "sound-dai",
 					 "#sound-dai-cells", i, &args);
-		printk("meson_card_parse_dai: ret=%d defer=%d", ret, EPROBE_DEFER);
 		if (ret) {
 			if (ret != -EPROBE_DEFER)
 				dev_err(card->dev, "can't parse dai %d\n", ret);
@@ -133,7 +129,8 @@ unsigned int meson_card_parse_daifmt(struct device_node *node,
 		daifmt |= (!framemaster || framemaster == cpu_node) ?
 			SND_SOC_DAIFMT_CBM_CFS : SND_SOC_DAIFMT_CBM_CFM;
 	}
-	printk("meson_card_parse_daifmt: daifmt=%x BM_FM=1, BS_FM=2, BM_FS=3, BS_FS=4", daifmt);
+	printk("meson_card_parse_daifmt: BS==cpu_node=%d, daifmt=%x BM_FM=1, BS_FS=4", 
+		bitclkmaster == cpu_node, (daifmt & SND_SOC_DAIFMT_MASTER_MASK)>>12);
 	of_node_put(bitclkmaster);
 	of_node_put(framemaster);
 
@@ -143,16 +140,26 @@ EXPORT_SYMBOL_GPL(meson_card_parse_daifmt);
 
 int meson_card_set_be_link(struct snd_soc_card *card,
 			   struct snd_soc_dai_link *link,
-			   struct device_node *node)
+			   struct device_node *node,
+			   bool is_playback)
 {
 	struct snd_soc_dai_link_component *codec;
 	struct device_node *np;
 	int ret, num_codecs;
-//	bool is_playback;
 
 	link->no_pcm = 1;
-	link->dpcm_playback = 1;
-	link->dpcm_capture = 1;
+	if (is_playback) {
+		link->playback_only = 1;
+		link->capture_only = 0;
+		link->dpcm_playback = 1;
+		link->dpcm_capture  = 0;
+	}
+	else {
+		link->playback_only = 0;
+		link->capture_only = 1;
+		link->dpcm_playback = 0;
+		link->dpcm_capture  = 1;
+	}
 
 	num_codecs = of_get_child_count(node);
 	if (!num_codecs) {
@@ -162,7 +169,6 @@ int meson_card_set_be_link(struct snd_soc_card *card,
 	}
 
 	codec = devm_kcalloc(card->dev, num_codecs, sizeof(*codec), GFP_KERNEL);
-	printk("meson_card_set_be_link: numcodecs=%d, name=%s", num_codecs, codec->name);
 	if (!codec)
 		return -ENOMEM;
 
@@ -176,34 +182,12 @@ int meson_card_set_be_link(struct snd_soc_card *card,
 			of_node_put(np);
 			return ret;
 		}
-/*
-		if (of_device_is_compatible(codec->of_node, "cirrus,cs4245")) {
-			printk("meson_card_set_be_link: cirrus,cs4245 compatible");
-			if (strstr(codec->dai_name, "CS4245 DAI PLAYBACK")) {
-				printk("meson_card_set_be_link: CS4245 playback match");
-				is_playback = true;
-			}
-			else if (strstr(codec->dai_name, "CS4245 DAI CAPTURE")) {
-				printk("meson_card_set_be_link: CS4245 capture match");
-				is_playback = false;
-			}
-			else printk("meson_card_set_be_link: dai_name \"%s\" does not match CS4245", 
-			codec->dai_name);
-		}
-*/
 		codec++;
 	}
-/*
-	if (is_playback)
-		link->dpcm_playback = 1;
-	else
-		link->dpcm_capture = 1;
-*/
 
 	ret = meson_card_set_link_name(card, link, node, "be");
 	if (ret)
 		dev_err(card->dev, "error setting %pOFn link name\n", np);
-	printk("meson_card_set_be_link: %s", codec->name);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(meson_card_set_be_link);
@@ -223,17 +207,26 @@ int meson_card_set_fe_link(struct snd_soc_card *card,
 	link->num_codecs = 1;
 
 	link->dynamic = 1;
+
 	link->dpcm_merged_format = 1;
 	link->dpcm_merged_chan = 1;
 	link->dpcm_merged_rate = 1;
+
 	link->codecs->dai_name = "snd-soc-dummy-dai";
 	link->codecs->name = "snd-soc-dummy";
 
-	if (is_playback)
+	if (is_playback) {
+		link->playback_only = 1;
+		link->capture_only = 0;
 		link->dpcm_playback = 1;
-	else
-		link->dpcm_capture = 1;
-
+		link->dpcm_capture  = 0;
+	}
+	else {
+		link->playback_only = 0;
+		link->capture_only = 1;
+		link->dpcm_playback = 0;
+		link->dpcm_capture  = 1;
+	}
 	return meson_card_set_link_name(card, link, node, "fe");
 }
 EXPORT_SYMBOL_GPL(meson_card_set_fe_link);

@@ -41,7 +41,8 @@ int meson_card_parse_dai(struct snd_soc_card *card,
 			 const char **dai_name);
 int meson_card_set_be_link(struct snd_soc_card *card,
 			   struct snd_soc_dai_link *link,
-			   struct device_node *node);
+			   struct device_node *node,
+			   bool is_playback);
 int meson_card_set_fe_link(struct snd_soc_card *card,
 			   struct snd_soc_dai_link *link,
 			   struct device_node *node,

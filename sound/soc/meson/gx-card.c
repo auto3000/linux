@@ -9,10 +9,8 @@
 #include <sound/soc-dai.h>
 
 #include "meson-card.h"
+#include "audio.h"
 
-#define AUDIN_FORMATS						\
-	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_3LE |	\
-	 SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 struct gx_dai_link_i2s_data {
 	unsigned int mclk_fs;
@@ -24,7 +22,7 @@ struct gx_dai_link_i2s_data {
  */
 static const struct snd_soc_pcm_stream codec_params = {
 	// SNDRV_PCM_FMTBIT_S24_LE,
-	.formats = AUDIN_FORMATS,
+	.formats = AUDIO_FORMATS,
 	.rate_min = 5525,
 	.rate_max = 192000,
 	.channels_min = 1,
@@ -69,31 +67,17 @@ static int gx_card_parse_i2s(struct snd_soc_card *card,
 	return 0;
 }
 
-static int gx_card_cpu_is_playback_fe(struct snd_soc_dai_link_component *c,
-				char *match)
+static int gx_card_dai_name_match(struct snd_soc_dai_link_component *c,
+				      char *match)
 {
-	if (of_device_is_compatible(c->of_node, "amlogic,aiu-gxbb")) {
+	if (of_device_is_compatible(c->of_node, "amlogic,audio-gxbb")) {
 		if (strstr(c->dai_name, match))
 			return 1;
 	}
 
-	printk("gx_card_cpu_is_playback_fe: dai_name \"%s\" does not match \"%s\"", c->dai_name, match);
+//	printk("gx_card: dai_name \"%s\" does not match \"%s\"", c->dai_name, match);
 	return 0;
 }
-
-static int gx_card_cpu_is_capture_fe(struct snd_soc_dai_link_component *c,
-				char *match)
-{
-	if (of_device_is_compatible(c->of_node, "amlogic,audin-gxbb")) {
-		if (strstr(c->dai_name, match))
-			return 1;
-	}
-
-	printk("gx_card_cpu_is_capture_fe: dai_name \"%s\" does not match \"%s\"", 
-		c->dai_name, match);
-	return 0;
-}
-
 static int gx_card_add_link(struct snd_soc_card *card, struct device_node *np,
 			    int *index)
 {
@@ -102,7 +86,7 @@ static int gx_card_add_link(struct snd_soc_card *card, struct device_node *np,
 	int ret;
 
 	cpu = devm_kzalloc(card->dev, sizeof(*cpu), GFP_KERNEL);
-	printk("gx_card_add_link: %pr", cpu);
+//	printk("gx_card_add_link: %pr", cpu);
 	if (!cpu)
 		return -ENOMEM;
 
@@ -114,32 +98,45 @@ static int gx_card_add_link(struct snd_soc_card *card, struct device_node *np,
 	if (ret)
 		return ret;
 
-	/* axg-frddr */
-	if (gx_card_cpu_is_playback_fe(dai_link->cpus, "I2S FIFO"))
+	/* I2S FIFO ENCODE */
+	if (gx_card_dai_name_match(dai_link->cpus, "I2S FIFO ENCODE"))
 		ret = meson_card_set_fe_link(card, dai_link, np, true);
-	/* axg-toddr */
-	else if (gx_card_cpu_is_capture_fe(dai_link->cpus, "I2S FIFO DECODE"))
+	/* I2S FIFO DECODE */
+	else if (gx_card_dai_name_match(dai_link->cpus, "I2S FIFO DECODE"))
 		ret = meson_card_set_fe_link(card, dai_link, np, false);
-	else ret = meson_card_set_be_link(card, dai_link, np);
+	/* Check if the cpu is the i2s encoder and parse i2s data */
+	else if (gx_card_dai_name_match(dai_link->cpus, "I2S Encoder")) {
+		ret = meson_card_set_be_link(card, dai_link, np, true);
+		if (ret)
+			return ret;
+		ret = gx_card_parse_i2s(card, np, index);
+	}
+	/* Check if the cpu is the i2s decoder and parse i2s data */
+	else if (gx_card_dai_name_match(dai_link->cpus, "I2S Decoder")) {
+		ret = meson_card_set_be_link(card, dai_link, np, false);
+		if (ret)
+			return ret;
+		ret = gx_card_parse_i2s(card, np, index);
+	}
+	/* Apply codec to codec playback params if necessary */
+	else if (gx_card_dai_name_match(dai_link->cpus, "CODEC CTRL")) {
+		ret = meson_card_set_be_link(card, dai_link, np, true);
+		if (ret)
+			return ret;
+		dai_link->params = &codec_params;
+		dai_link->no_pcm = 0; /* link is not a DPCM BE */
+	}
+	/* Apply codec to codec record params if necessary */
+	else if (gx_card_dai_name_match(dai_link->cpus, "CODEC REC")) {
+		ret = meson_card_set_be_link(card, dai_link, np, false);
+		if (ret)
+			return ret;
+		dai_link->params = &codec_params;
+		dai_link->no_pcm = 0; /* link is not a DPCM BE */
+	}
+	else 
+		ret = meson_card_set_be_link(card, dai_link, np, true);
 
-	if (ret)
-		return ret;
-	/* Check if the cpu is the i2s encoder and parse i2s data (tdm-iface) */
-	if (gx_card_cpu_is_playback_fe(dai_link->cpus, "I2S Encoder"))
-		ret = gx_card_parse_i2s(card, np, index);
-	/* Check if the cpu is the i2s decoder and parse i2s data (tdm-iface) */
-	else if (gx_card_cpu_is_capture_fe(dai_link->cpus, "I2S Decoder"))
-		ret = gx_card_parse_i2s(card, np, index);
-	/* Apply codec to codec playback params if necessary (g12a-toacodec) */
-	else if (gx_card_cpu_is_playback_fe(dai_link->cpus, "CODEC CTRL")) {
-		dai_link->params = &codec_params;
-		dai_link->no_pcm = 0; /* link is not a DPCM BE */
-	}
-	/* Apply codec to codec record params if necessary (g12a-toacodec) */
-	else if (gx_card_cpu_is_capture_fe(dai_link->cpus, "CODEC REC")) {
-		dai_link->params = &codec_params;
-		dai_link->no_pcm = 0; /* link is not a DPCM BE */
-	}
 	return ret;
 }
 
