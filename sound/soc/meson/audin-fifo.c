@@ -7,7 +7,6 @@
  */
 #include <linux/bitfield.h>
 #include <linux/clk.h>
-#include <linux/string.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
@@ -15,21 +14,20 @@
 #include "audin-fifo.h"
 #include "audio.h"
 
-int audin_fifo_hw_params(struct snd_pcm_substream *substream,
-		         struct snd_pcm_hw_params *params,
-		         struct snd_soc_dai *dai)
+int audin_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
+		    	     struct snd_pcm_hw_params *params,
+		  	     struct snd_soc_dai *dai)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
 	struct audio_fifo *fifo = dai->capture_dma_data;
 	dma_addr_t end;
 //	dma_addr_t end_block;
 	unsigned int desc = 0;
 	unsigned int desc1 = 0;
 	unsigned int val = 0;
-	unsigned int ch = 0;
 	int ret;
-	unsigned int debug_val[2];
+//	unsigned int debug_val[2];
 
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	if (ret < 0)
@@ -44,38 +42,30 @@ int audin_fifo_hw_params(struct snd_pcm_substream *substream,
 		     runtime->dma_addr);
 	regmap_write(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_END_OFF,
 		     end);
-//	regmap_write(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_INTR_OFF,
-//		     end_block);
-/*
-	memset((void *)(0xFFFF000000000000L + runtime->dma_addr), 0, runtime->dma_bytes
-		  - fifo->fifo_block);
-	memset((void *)(0xFFFF000000000000L + runtime->dma_addr + runtime->dma_bytes 
-		  - fifo->fifo_block), 0x78, fifo->fifo_block);
-*/
 	regmap_read(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_START_OFF, &debug_val[0]);
 	regmap_write(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_PTR_OFF, 1);
 	regmap_read(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_PTR_OFF, &debug_val[1]);
-	printk("audin_fifo_hw_params: AUDIN_FIFO_START=%x, AUDIN_FIFO_PTR=%x\n", 
+	printk("audin_fifo_i2s_hw_params: AUDIN_FIFO_START=%x, AUDIN_FIFO_PTR=%x\n", 
 		debug_val[0], debug_val[1]);
 
 	/* DIN_POS: 0: 1:1-byte, 2:2-bytes 3:3-bytes 4:4-bytes? */
 	/* DIN_BYTE_NUM: 0:8bit, 1:16bit, 2:32bit (24bit) */
 	switch (params_physical_width(params)) {
 	case 16:
-		desc |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 6);
+		desc  |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 4);
 		desc1 |= FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, 0) |
-		        FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
+		         FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
 		val = AIU_MEM_I2S_CONTROL_MODE_16BIT;
 		break;
 	case 24:
-		desc |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 6);
-		desc1 |= FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, 0) |
-		        FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
+		desc  |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 4);
+		desc1 |= FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, 1) |
+		         FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
 		break;
 	case 32:
-		desc |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 6);
-		desc1 |= FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, 0) |
-		        FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
+		desc  |= FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, 4);
+		desc1 |= FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, 1) |
+		         FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, 2);
 		break;
 	default:
 		dev_err(dai->dev, "Unsupported physical width %u\n",
@@ -83,9 +73,12 @@ int audin_fifo_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	desc |= FIELD_PREP(AUDIN_FIFO_CTRL_DIN_SEL, I2S);
-	ch = params_channels(params);
-	desc |= FIELD_PREP(AUDIN_FIFO_CTRL_CHAN, ch);
+	desc |= FIELD_PREP(AUDIN_FIFO_CTRL_DIN_SEL, I2S) |
+		FIELD_PREP(AUDIN_FIFO_CTRL_CHAN, 1);
+
+	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_CONTROL,
+			  AIU_MEM_I2S_CONTROL_MODE_16BIT,
+			  val);
 
 	regmap_update_bits(audio->audin_map,
 			   AUDIN_FIFO0_CTRL,
@@ -102,27 +95,27 @@ int audin_fifo_hw_params(struct snd_pcm_substream *substream,
 			   AUDIN_FIFO_CTRL1_DINBYTENUM,
 			   desc1);
 
-	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_CONTROL,
-			  AIU_MEM_I2S_CONTROL_MODE_16BIT,
-			  val);
-
+	/* Setup the fifo to read all the memory - no skip */
 	/* Set Channel Mask to 0xffff for split mode */
+	val = FIELD_PREP(AIU_MEM_I2S_MASKS_CH_MEM |
+			 AIU_MEM_I2S_MASKS_CH_RD, 
+			 0xffff);
 	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_MASKS, 
-			  AIU_MEM_I2S_MASKS_CH_RD |
-			  AIU_MEM_I2S_MASKS_CH_MEM,
-			  FIELD_PREP(AIU_MEM_I2S_MASKS_CH_RD, 0xff) |
-			  FIELD_PREP(AIU_MEM_I2S_MASKS_CH_MEM, 0xff));
+			  AIU_MEM_I2S_MASKS_CH_MEM |
+			  AIU_MEM_I2S_MASKS_CH_RD,
+			  val);
 
 	/* Setup the irq periodicity */
 	val = params_period_bytes(params) / fifo->fifo_block;
 	val = FIELD_PREP(AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
 	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_MASKS,
 			  AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
-
+/*
 	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &debug_val[0]);
 	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &debug_val[1]);
-	printk("audin_fifo_hw_params: AUDIN_FIFO0_CTRL=%x, AUDIN_FIFO0_CTRL1=%x\n", 
+	printk("audin_fifo_i2s_hw_params: AUDIN_FIFO0_CTRL=%x, AUDIN_FIFO0_CTRL1=%x\n", 
 		debug_val[0], debug_val[1]);
+*/
 	return 0;
 }
 
@@ -130,12 +123,8 @@ static int audin_fifo_i2s_prepare(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
 	struct audio *audio = snd_soc_dai_get_drvdata(dai);
-	unsigned int debug_val[2];
-//	unsigned int val = 0;
+//	unsigned int debug_val[2];
 
-	/* AIU_MEM_I2S_CONTROL_PTR: 0:parser, 1:audin_fifo0_wrptr, 2-3:audin_fifo1_wrptr */
-//	val = AIU_MEM_I2S_CONTROL_INIT |
-//	      FIELD_PREP(AIU_MEM_I2S_CONTROL_PTR, 1);
 	regmap_update_bits(audio->aiu_map,
 			   AIU_MEM_I2S_CONTROL,
 			   AIU_MEM_I2S_CONTROL_INIT,
@@ -144,31 +133,34 @@ static int audin_fifo_i2s_prepare(struct snd_pcm_substream *substream,
 			   AIU_MEM_I2S_CONTROL,
 			   AIU_MEM_I2S_CONTROL_INIT,
 			   0);
+
 	regmap_update_bits(audio->aiu_map,
 			  AIU_MEM_I2S_BUF_CNTL,
 			  AIU_MEM_I2S_BUF_CNTL_INIT,
 			  AIU_MEM_I2S_BUF_CNTL_INIT);
 	regmap_update_bits(audio->aiu_map,
 			  AIU_MEM_I2S_BUF_CNTL,
-			  AIU_MEM_I2S_BUF_CNTL_INIT, 0);
-
+			  AIU_MEM_I2S_BUF_CNTL_INIT, 
+			  0);
+/*
 	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &debug_val[0]);
 	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &debug_val[1]);
 	printk("audin_fifo_i2s_prepare: AUDIN_FIFO0_CTRL=%x, AUDIN_FIFO0_CTRL1=%x\n", 
 		debug_val[0], debug_val[1]);
+*/
 	return 0;
 }
 
 static void audin_fifo_enable(struct snd_soc_dai *dai, bool enable)
 {
-	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = snd_soc_dai_get_drvdata(dai);
 	struct audio_fifo *fifo = dai->capture_dma_data;
+	unsigned int aiu_mask = (AIU_MEM_I2S_CONTROL_FILL_EN |
+				AIU_MEM_I2S_CONTROL_EMPTY_EN);
 	unsigned int en_mask = AUDIN_FIFO_CTRL_EN |
 			       AUDIN_FIFO_CTRL_LOAD |
 			       AUDIN_FIFO_CTRL_UG;
-	unsigned int aiu_mask = (AIU_MEM_I2S_CONTROL_FILL_EN |
-				AIU_MEM_I2S_CONTROL_EMPTY_EN);
-	unsigned int debug_val;
+//	unsigned int debug_val;
 
 	regmap_update_bits(audio->aiu_map,
 			   AIU_MEM_I2S_CONTROL,
@@ -176,14 +168,10 @@ static void audin_fifo_enable(struct snd_soc_dai *dai, bool enable)
 	regmap_update_bits(audio->audin_map,
 			   fifo->mem_offset + AUDIN_FIFO_CTRL_OFF,
 			   en_mask, enable ? en_mask : 0);
-//	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
-//			   en_mask, enable ? en_mask : 0);
-//	regmap_update_bits(audio->audin_map, AUDIN_DECODE_FORMAT,
-//			   AUDIN_DECODE_FMT_I2S_ENA,
-//			   enable ? AUDIN_DECODE_FMT_I2S_ENA : 0);
-
+/*
 	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &debug_val);
 	printk("audin_fifo_enable: AUDIN_FIFO0_CTRL=%x\n", debug_val);
+*/
 }
 
 int audin_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -211,9 +199,8 @@ static int audin_fifo_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct audio *audio = snd_soc_dai_get_drvdata(dai);
 	unsigned int rd_ptr, start;
-	unsigned int val, debug_val;
-//	struct audio_fifo *fifo = dai->capture_dma_data;
-//	struct snd_pcm_runtime *runtime = substream->runtime;
+	unsigned int val = 0
+//	unsigned in debug_val;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -232,18 +219,16 @@ static int audin_fifo_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 			regmap_read(audio->audin_map, AUDIN_FIFO0_PTR, &rd_ptr);
 			regmap_read(audio->audin_map, AUDIN_FIFO0_START, &start);
 		} while(rd_ptr != start);
-//		memset((void *)(0xFFFF000000000000L + runtime->dma_addr + runtime->dma_bytes 
-//			- fifo->fifo_block), 0x78, fifo->fifo_block);
-//		memset_io((void __force __iomem *)(runtime->dma_addr + (2*runtime->dma_bytes) 
-//			 - fifo->fifo_block - 8), 0x78, 8);
 
 		regmap_write(audio->aiu_map, AIU_RST_SOFT,
 			     AIU_RST_SOFT_I2S_FAST);
 		regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
+/*
 		regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &debug_val);
 	 	printk("audin_fifo_i2s_trigger: ");
 		printk("AUDIN_FIFO0_START=%x, AUDIN_FIFO0_PTR=%x, AUDIN_FIFO0_CTRL=%x\n",
 			start, rd_ptr, debug_val );
+*/
 		break;
 	}
 	return audin_fifo_trigger(substream, cmd, dai);
@@ -260,8 +245,7 @@ static irqreturn_t audin_fifo_isr(int irq, void *dev_id)
 	struct snd_pcm_substream *capture = dev_id;
 
 	snd_pcm_period_elapsed(capture);
-	printk("audin_fifo_isr\n");
-
+//	printk("audin_fifo_isr\n");
 	return IRQ_HANDLED;
 }
 
@@ -295,8 +279,8 @@ int audin_fifo_startup(struct snd_pcm_substream *substream,
 
 	ret = request_irq(fifo->irq, audin_fifo_isr, 0, fifo->irq_name,
 			  substream);
-	printk("audin_fifo_startup: devname=%s, irq_name=%s\n", dev_name(dai->dev), 
-		fifo->irq_name);
+//	printk("audin_fifo_startup: devname=%s, irq_name=%s\n", dev_name(dai->dev), 
+//		fifo->irq_name);
 	if (ret)
 		clk_disable_unprepare(fifo->pclk);
 
@@ -332,10 +316,11 @@ int audin_fifo_dai_remove(struct snd_soc_dai *dai)
 }
 
 const struct snd_soc_dai_ops audin_fifo_i2s_dai_ops = {
-	.hw_params	= audin_fifo_hw_params,
+	.hw_params	= audin_fifo_i2s_hw_params,
 	.prepare	= audin_fifo_i2s_prepare,
 	.trigger	= audin_fifo_i2s_trigger,
 	.hw_free	= audin_fifo_hw_free,
 	.startup	= audin_fifo_startup,
 	.shutdown	= audin_fifo_shutdown,
 };
+

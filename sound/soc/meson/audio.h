@@ -61,8 +61,9 @@ struct audio_fifo {
 };
 
 #define AUDIO_FORMATS						\
-	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_3LE |	\
-	 SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
+	(SNDRV_PCM_FMTBIT_S16_LE  | SNDRV_PCM_FMTBIT_S24_3LE |	\
+	 SNDRV_PCM_FMTBIT_S24_3BE | SNDRV_PCM_FMTBIT_S24_LE  |	\
+	 SNDRV_PCM_FMTBIT_S32_LE  | SNDRV_PCM_FMTBIT_S32_BE)
 
 int audio_of_xlate_dai_name(struct snd_soc_component *component,
 			  struct of_phandle_args *args,
@@ -166,7 +167,6 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 #define AIU_HDMI_CLK_DATA_CTRL_CLK_SEL	GENMASK(1, 0)
 #define AIU_HDMI_CLK_DATA_CTRL_DATA_SEL GENMASK(5, 4)
 
-//#define AIU_MEM_I2S_MASKS_CHAN_MASK	GENMASK(15, 0)
 #define AIU_MEM_I2S_MASKS_CH_RD		GENMASK(7, 0)
 #define AIU_MEM_I2S_MASKS_CH_MEM	GENMASK(15, 8)
 #define AIU_MEM_I2S_MASKS_IRQ_BLOCK	GENMASK(31, 16)
@@ -185,11 +185,11 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 
 /* AIU register offsets */
 /* Registers offset from AIU_MEM_I2S_START */
-#define AIU_MEM_I2S_START_OFF			0x00
-#define AIU_MEM_I2S_RD_OFF			(AIU_MEM_I2S_RD - AIU_MEM_I2S_START)
-#define AIU_MEM_I2S_END_OFF			(AIU_MEM_I2S_END - AIU_MEM_I2S_START)
-#define AIU_MEM_I2S_MASKS_OFF			(AIU_MEM_I2S_MASKS - AIU_MEM_I2S_START)
-#define AIU_MEM_I2S_CONTROL_OFF			(AIU_MEM_I2S_CONTROL - AIU_MEM_I2S_START)
+#define AIU_MEM_I2S_START_OFF		0x00
+#define AIU_MEM_I2S_RD_OFF		(AIU_MEM_I2S_RD - AIU_MEM_I2S_START)
+#define AIU_MEM_I2S_END_OFF		(AIU_MEM_I2S_END - AIU_MEM_I2S_START)
+#define AIU_MEM_I2S_MASKS_OFF		(AIU_MEM_I2S_MASKS - AIU_MEM_I2S_START)
+#define AIU_MEM_I2S_CONTROL_OFF		(AIU_MEM_I2S_CONTROL - AIU_MEM_I2S_START)
 
 /* AUDIN registers */
 #define AUDIN_SPDIF_MODE		0x000
@@ -363,5 +363,4 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 #define AUDIN_FIFO_CTRL_OFF			(AUDIN_FIFO0_CTRL - AUDIN_FIFO0_START)
 
 #endif /* _MESON_AUDIO_H */
-
 

@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: (GPL-2.0 OR MIT) */
-/*
+/* SPDX-License-Identifier: (GPL-2.0 OR MIT)
+ *
  * Copyright (c) 2020 BayLibre, SAS.
  * Author: Jerome Brunet <jbrunet@baylibre.com>
+ * Author: Rezzonics <rezzonics@gmail.com>
  */
 
 #ifndef _MESON_AIU_FIFO_H
@@ -17,30 +18,15 @@ struct snd_soc_dai;
 struct snd_pcm_hw_params;
 struct platform_device;
 
-/* Defined on audio.h */
-/*
-struct aiu_fifo {
-	struct snd_pcm_hardware *pcm;
-	unsigned int mem_offset;
-	unsigned int fifo_block;
-	struct clk *pclk;
-	int irq;
-};
-*/
 int aiu_fifo_dai_probe(struct snd_soc_dai *dai);
 int aiu_fifo_dai_remove(struct snd_soc_dai *dai);
-/*
-snd_pcm_uframes_t aiu_fifo_pointer(struct snd_soc_component *component,
-				   struct snd_pcm_substream *substream);
-snd_pcm_uframes_t aiu_fifo_pointer(struct snd_pcm_substream *substream);
-*/
 int aiu_fifo_trigger(struct snd_pcm_substream *substream, int cmd,
 		     struct snd_soc_dai *dai);
 int aiu_fifo_prepare(struct snd_pcm_substream *substream,
 		     struct snd_soc_dai *dai);
-int aiu_fifo_hw_params(struct snd_pcm_substream *substream,
-		       struct snd_pcm_hw_params *params,
-		       struct snd_soc_dai *dai);
+int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
+			   struct snd_pcm_hw_params *params,
+			   struct snd_soc_dai *dai);
 int aiu_fifo_hw_free(struct snd_pcm_substream *substream,
 		     struct snd_soc_dai *dai);
 int aiu_fifo_startup(struct snd_pcm_substream *substream,

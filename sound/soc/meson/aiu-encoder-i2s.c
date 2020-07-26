@@ -15,13 +15,15 @@ static void aiu_encoder_i2s_hold(struct snd_soc_component *component,
 				 bool enable)
 {
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-	unsigned int debug_val;
+//	unsigned int debug_val;
 
 	regmap_update_bits(audio->aiu_map, AIU_I2S_MISC,
 			   AIU_I2S_MISC_HOLD_EN,
 			   enable ? AIU_I2S_MISC_HOLD_EN : 0);
+/*
 	regmap_read(audio->aiu_map, AIU_I2S_MISC, &debug_val);
 	printk("aiu_encoder_i2s_hold: AIU_I2S_MISC=%x\n", debug_val);
+*/
 }
 
 static int aiu_encoder_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -52,27 +54,22 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 {
 	/* Always operate in split (classic interleaved) mode */
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-
-	/* Try removing AIU_I2S_SOURCE_DESC_MODE_SPLIT */
-	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT | AIU_I2S_SOURCE_DESC_MSB_INV;
-	unsigned int val;
+	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT; // | AIU_I2S_SOURCE_DESC_MSB_INV;
+	unsigned int val = 0;
 
 	/* Reset required to update the pipeline */
 	regmap_write(audio->aiu_map, AIU_RST_SOFT, AIU_RST_SOFT_I2S_FAST);
 	regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
 
-	/* Try removing AIU_I2S_SOURCE_DESC_MODE_24BIT */
 	switch (params_physical_width(params)) {
 	case 16: 
 		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 2);
 		break;
 	case 24:
-		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 1) |
-			AIU_I2S_SOURCE_DESC_MODE_24BIT;
-//		        AIU_I2S_SOURCE_DESC_MODE_32BIT;
+		desc |= AIU_I2S_SOURCE_DESC_MODE_24BIT;
 		break;
 	case 32:
-		desc |= AIU_I2S_SOURCE_DESC_SHIFT_BITS |
+		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7) |
 			AIU_I2S_SOURCE_DESC_MODE_24BIT |
 			AIU_I2S_SOURCE_DESC_MODE_32BIT;
 		break;
@@ -99,14 +96,17 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 			   AIU_I2S_SOURCE_DESC_MODE_32BIT |
 			   AIU_I2S_SOURCE_DESC_MODE_SPLIT ,
 			   desc);
+
 	regmap_update_bits(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL,
 			  AIU_HDMI_CLK_DATA_CTRL_CLK_SEL |
 			  AIU_HDMI_CLK_DATA_CTRL_DATA_SEL,
 			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_CLK_SEL, 2) |
 			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, 2));
-
+/*
 	regmap_read(audio->aiu_map, AIU_I2S_SOURCE_DESC, &val);
-	printk("aiu_decoder_i2s_setup_desc: AIU_I2S_SOURCE_DESC=%x\n", val);
+	printk("aiu_decoder_i2s_setup_desc: ch=%d, desc=%x, AIU_I2S_SOURCE_DESC=%x\n", 
+		params_channels(params), desc, val);
+*/
 	return 0;
 }
 
@@ -117,7 +117,7 @@ static int aiu_encoder_i2s_set_clocks(struct snd_soc_component *component,
 	unsigned int srate = params_rate(params);
 	unsigned int fs, bs;
 	unsigned int val = 0;
-	unsigned int debug_val[2];
+//	unsigned int debug_val[2];
 
 	/* Get the oversampling factor */
 	fs = DIV_ROUND_CLOSEST(clk_get_rate(audio->aiu.clks[MCLK].clk), srate);
@@ -127,10 +127,8 @@ static int aiu_encoder_i2s_set_clocks(struct snd_soc_component *component,
 
 	/* Send data MSB first */
 	val |= AIU_I2S_DAC_CFG_MSB_FIRST;
-//	val |= (params_width(params) != 16) ? AIU_I2S_DAC_CFG_SIZE : 0;
 	regmap_update_bits(audio->aiu_map, AIU_I2S_DAC_CFG,
-			   AIU_I2S_DAC_CFG_MSB_FIRST, // |
-//			   AIU_I2S_DAC_CFG_SIZE ,
+			   AIU_I2S_DAC_CFG_MSB_FIRST,
 			   val);
 
 	/* Set bclk to lrlck ratio */
@@ -160,19 +158,18 @@ static int aiu_encoder_i2s_set_clocks(struct snd_soc_component *component,
 		bs += bs / 2;
 	}
 
-	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
-			   AIU_CLK_CTRL_MORE_I2S_DIV,
-			   FIELD_PREP(AIU_CLK_CTRL_MORE_I2S_DIV,
-			   bs - 1));
-
 	/* Make sure amclk is used for HDMI i2s as well */
 	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL_MORE,
+			   AIU_CLK_CTRL_MORE_I2S_DIV |
 			   AIU_CLK_CTRL_MORE_HDMI_AMCLK,
+			   FIELD_PREP(AIU_CLK_CTRL_MORE_I2S_DIV, bs - 1) |
 			   AIU_CLK_CTRL_MORE_HDMI_AMCLK);
+/*
 	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &debug_val[0]);
 	regmap_read(audio->aiu_map, AIU_CLK_CTRL_MORE, &debug_val[1]);
 	printk("aiu_encoder_i2s_set_clocks: AIU_CLK_CTRL=%x, AIU_CLK_CTRL_MORE=%x\n", 
 		debug_val[0], debug_val[1]);
+*/
 	return 0;
 }
 
@@ -180,13 +177,15 @@ static void aiu_encoder_i2s_divider_enable(struct snd_soc_component *component,
 					   bool enable)
 {
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-	unsigned int debug_val;
+//	unsigned int debug_val;
 	
 	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL,
 			   AIU_CLK_CTRL_I2S_DIV_EN,
 			   enable ? AIU_CLK_CTRL_I2S_DIV_EN : 0);
+/*
 	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &debug_val);
 	printk("aiu_encoder_i2s_divider_enable: AIU_CLK_CTRL=%x\n", debug_val);
+*/
 }
 
 static int aiu_encoder_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -228,8 +227,7 @@ static int aiu_encoder_i2s_hw_free(struct snd_pcm_substream *substream,
 
 static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
-//	struct snd_soc_component *component = dai->component;
-	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
+	struct audio *audio = dev_get_drvdata(dai->dev);;
 	unsigned int inv = fmt & SND_SOC_DAIFMT_INV_MASK;
 	unsigned int val = 0;
 	unsigned int skew;
@@ -250,14 +248,15 @@ static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 /*
 	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) != SND_SOC_DAIFMT_CBS_CFS)
 		return -EINVAL;
-*/
 	if (inv == SND_SOC_DAIFMT_NB_IF ||
 	    inv == SND_SOC_DAIFMT_IB_IF)
 		val |= AIU_CLK_CTRL_LRCLK_INVERT;
+*/
 
 	if (inv == SND_SOC_DAIFMT_IB_NF ||
 	    inv == SND_SOC_DAIFMT_IB_IF)
 		val |= AIU_CLK_CTRL_AOCLK_INVERT;
+	val |= AIU_CLK_CTRL_LRCLK_INVERT;
 
 	/* Signal skew */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
@@ -279,8 +278,10 @@ static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 			   AIU_CLK_CTRL_AOCLK_INVERT |
 			   AIU_CLK_CTRL_LRCLK_SKEW,
 			   val);
+/*
 	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &val);
 	printk("aiu_encoder_i2s_set_fmt: AIU_CLK_CTRL=%x\n", val);
+*/
 	return 0;
 }
 
@@ -303,7 +304,7 @@ static int aiu_encoder_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return ret;
 }
 
-static const unsigned int hw_channels[] = {2, 8};
+static const unsigned int hw_channels[] = {1, 2, 8};
 static const struct snd_pcm_hw_constraint_list hw_channel_constraints = {
 	.list = hw_channels,
 	.count = ARRAY_SIZE(hw_channels),
@@ -316,7 +317,7 @@ static int aiu_encoder_i2s_startup(struct snd_pcm_substream *substream,
 	struct audio *audio = snd_soc_component_get_drvdata(dai->component);
 	int ret;
 
-	/* Make sure the encoder gets either 2 or 8 channels */
+	/* Make sure the encoder gets either 1, 2 or 8 channels */
 	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
 					 SNDRV_PCM_HW_PARAM_CHANNELS,
 					 &hw_channel_constraints);

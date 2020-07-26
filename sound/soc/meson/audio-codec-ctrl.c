@@ -14,136 +14,431 @@
 #include "audio.h"
 #include "meson-codec-glue.h"
 
-#define CTRL_DATA_SEL_SHIFT	4
-
-static const char * const aiu_codec_ctrl_mux_texts[] = {
-	"DISABLED", "PCM", "I2S",
+/*
+static const char * const audin_endian_texts[] = {
+	"END0", "END1", "END2", "END3", "END4", "END5", "END6", "END7"
 };
 
-static const char * const audin_codec_src_sel_mux_texts[] = {
-	"SRC0", "SRC1", "SRC2", "SRC3",
-};
-
-int audin_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_value *ucontrol);
-
-int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol);
-
-int audin_codec_ctrl_mux_get_enum(struct snd_kcontrol *kcontrol,
-				  struct snd_ctl_elem_value *ucontrol);
-
-int aiu_codec_ctrl_mux_get_enum(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol);
-
-int aiu_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+static int audin_endian_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component =
-		snd_soc_dapm_kcontrol_component(kcontrol);
-	struct snd_soc_dapm_context *dapm =
-		snd_soc_dapm_kcontrol_dapm(kcontrol);
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_FIFO_CTRL_ENDIAN;
+	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &val);
+	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_endian_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct audio *audio = snd_soc_component_get_drvdata(component);
 	unsigned int mux, val, mask, old, new;
 	int changed;
 
 	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
-	val = FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, mux);
-	mask = AIU_HDMI_CLK_DATA_CTRL_DATA_SEL;
-	snd_soc_component_test_bits(component, e->reg,
-				    AIU_HDMI_CLK_DATA_CTRL_DATA_SEL,
-				    FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, mux));
-	changed = regmap_read(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL, &old);
+	val = FIELD_PREP(AUDIN_FIFO_CTRL_ENDIAN, mux);
+	mask = AUDIN_FIFO_CTRL_ENDIAN;
+	changed = regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &old);
 	new = (old & ~mask) | val;
 	changed = old != new;
+
 	if (!changed)
 		return 0;
-	/* Force disconnect of the mux while updating */
-	snd_soc_dapm_mux_update_power(dapm, kcontrol, 0, NULL, NULL);
-
-	/* Reset the source first */
-	regmap_update_bits(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL,
-			  AIU_HDMI_CLK_DATA_CTRL_CLK_SEL |
-			  AIU_HDMI_CLK_DATA_CTRL_DATA_SEL,
-			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_CLK_SEL, 0) |
-			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, 0));
-
-	/* Set the appropriate source */
-	regmap_update_bits(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL,
-			  AIU_HDMI_CLK_DATA_CTRL_CLK_SEL |
-			  AIU_HDMI_CLK_DATA_CTRL_DATA_SEL,
-			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_CLK_SEL, mux) |
-			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, mux));
-
-	snd_soc_dapm_mux_update_power(dapm, kcontrol, mux, e, NULL);
-//	printk("aiu_codec_ctrl_mux_put_enum: old=%x, new=%x\n", old, new); 
+	regmap_update_bits(audio->audin_map, AUDIN_FIFO0_CTRL,
+			   mask,
+			   val);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aiu_codec_ctrl_mux_put_enum);
 
-int aiu_codec_ctrl_mux_get_enum(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+static SOC_ENUM_SINGLE_EXT_DECL(audin_endian_enum, audin_endian_texts);
+
+static const char * const audin_ch_texts[] = {
+	"CH_0", "CH_1", "CH_2", "CH_3", "CH4", "CH5", "CH6", "CH_7",
+	"CH8", "CH9", "CH10", "CH11", "CH12", "CH13", "CH14", "CH15",
+};
+
+static int audin_ch_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component =
-		snd_soc_dapm_kcontrol_component(kcontrol);
+		snd_soc_kcontrol_component(kcontrol);
 	struct audio *audio = snd_soc_component_get_drvdata(component);
 	unsigned int val, mask;
 
-	mask = AIU_HDMI_CLK_DATA_CTRL_DATA_SEL;
-	regmap_read(audio->aiu_map, AIU_HDMI_CLK_DATA_CTRL, &val);
+	mask = AUDIN_FIFO_CTRL_CHAN;
+	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &val);
 	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aiu_codec_ctrl_mux_get_enum);
 
-int audin_codec_ctrl_mux_put_enum(struct snd_kcontrol *kcontrol,
+static int audin_ch_put_enum(struct snd_kcontrol *kcontrol,
 			          struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component =
-		snd_soc_dapm_kcontrol_component(kcontrol);
-	struct snd_soc_dapm_context *dapm =
-		snd_soc_dapm_kcontrol_dapm(kcontrol);
+		snd_soc_kcontrol_component(kcontrol);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct audio *audio = snd_soc_component_get_drvdata(component);
 	unsigned int mux, val, mask, old, new;
 	int changed;
 
 	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
-	val = FIELD_PREP(AUDIN_SOURCE_SEL_I2S, mux);
-	mask = AUDIN_SOURCE_SEL_I2S;
-	changed = regmap_read(audio->audin_map, AUDIN_SOURCE_SEL, &old);
+	val = FIELD_PREP(AUDIN_FIFO_CTRL_CHAN, mux);
+	mask = AUDIN_FIFO_CTRL_CHAN;
+	changed = regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL, &old);
 	new = (old & ~mask) | val;
 	changed = old != new;
 
 	if (!changed)
 		return 0;
-	// Force disconnect of the mux while updating
-	snd_soc_dapm_mux_update_power(dapm, kcontrol, 0, NULL, NULL);
-	regmap_update_bits(audio->audin_map, AUDIN_SOURCE_SEL,
-			   AUDIN_SOURCE_SEL_I2S,
-			   FIELD_PREP(AUDIN_SOURCE_SEL_I2S, mux));
-
-	snd_soc_dapm_mux_update_power(dapm, kcontrol, mux, e, NULL);
+	regmap_update_bits(audio->audin_map, AUDIN_FIFO0_CTRL,
+			   mask,
+			   val);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(audin_codec_ctrl_mux_put_enum);
 
-int audin_codec_ctrl_mux_get_enum(struct snd_kcontrol *kcontrol,
-			          struct snd_ctl_elem_value *ucontrol)
+static SOC_ENUM_SINGLE_EXT_DECL(audin_ch_enum, audin_ch_texts);
+
+static const char * const audin_dinpos_texts[] = {
+	"DP0", "DP1", "DP2", "DP3"
+};
+
+static int audin_dinpos_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component =
-		snd_soc_dapm_kcontrol_component(kcontrol);
+		snd_soc_kcontrol_component(kcontrol);
 	struct audio *audio = snd_soc_component_get_drvdata(component);
 	unsigned int val, mask;
 
-	mask = AUDIN_SOURCE_SEL_I2S;
-	regmap_read(audio->audin_map, AUDIN_SOURCE_SEL, &val);
+	mask = AUDIN_FIFO_CTRL1_DINPOS;
+	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &val);
 	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(audin_codec_ctrl_mux_get_enum);
 
+static int audin_dinpos_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
+	val = FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS, mux);
+	mask = AUDIN_FIFO_CTRL1_DINPOS;
+	changed = regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_FIFO0_CTRL1,
+			   mask,
+			   val);
+	return 0;
+}
+
+static SOC_ENUM_SINGLE_EXT_DECL(audin_dinpos_enum, audin_dinpos_texts);
+
+static const char * const audin_bytenum_texts[] = {
+	"BN0", "BN1", "BN2", "BN3"
+};
+
+static int audin_bytenum_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_FIFO_CTRL1_DINBYTENUM;
+	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &val);
+	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_bytenum_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
+	val = FIELD_PREP(AUDIN_FIFO_CTRL1_DINBYTENUM, mux);
+	mask = AUDIN_FIFO_CTRL1_DINBYTENUM;
+	changed = regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_FIFO0_CTRL1,
+			   mask,
+			   val);
+	return 0;
+}
+
+static SOC_ENUM_SINGLE_EXT_DECL(audin_bytenum_enum, audin_bytenum_texts);
+
+static int audin_dinpos2_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_FIFO_CTRL1_DINPOS2;
+	regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &val);
+	ucontrol->value.integer.value[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_dinpos2_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = ucontrol->value.integer.value[0];
+	val = FIELD_PREP(AUDIN_FIFO_CTRL1_DINPOS2, mux);
+	mask = AUDIN_FIFO_CTRL1_DINPOS2;
+	changed = regmap_read(audio->audin_map, AUDIN_FIFO0_CTRL1, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_FIFO0_CTRL1,
+			   mask,
+			   val);
+	return 0;
+}
+
+static int audin_lrclkinvt_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	ucontrol->value.integer.value[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_lrclkinvt_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = ucontrol->value.integer.value[0];
+	val = FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT, mux);
+	mask = AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+	changed = regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   mask,
+			   val);
+	return 0;
+}
+
+static int audin_lrclkskew_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	ucontrol->value.integer.value[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_lrclkskew_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = ucontrol->value.integer.value[0];
+	val = FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW, mux);
+	mask = AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW;
+	changed = regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   mask,
+			   val);
+	return 0;
+}
+
+static int audin_possync_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC;
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	ucontrol->value.integer.value[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_possync_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = ucontrol->value.integer.value[0];
+	val = FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC, mux);
+	mask = AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC;
+	changed = regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   mask,
+			   val);
+	return 0;
+}
+
+static const char * const audin_i2ssize_texts[] = {
+	"SZ0", "SZ1", "SZ2", "SZ3"
+};
+
+static int audin_i2ssize_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_I2SIN_CTRL_I2SIN_SIZE;
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_i2ssize_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
+	val = FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, mux);
+	mask = AUDIN_I2SIN_CTRL_I2SIN_SIZE;
+	changed = regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   mask,
+			   val);
+	return 0;
+}
+
+static SOC_ENUM_SINGLE_EXT_DECL(audin_i2ssize_enum, audin_i2ssize_texts);
+
+static const char * const audin_chen_texts[] = {
+	"CHEN0", "CHEN1", "CHEN2", "CHEN3", "CHEN4", "CHEN5", "CHEN6", "CHEN7",
+	"CHEN8", "CHEN9", "CHEN10", "CHEN11", "CHEN12", "CHEN13", "CHEN14", "CHEN15",
+};
+
+static int audin_chen_get_enum(struct snd_kcontrol *kcontrol,
+			         struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int val, mask;
+
+	mask = AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN;
+	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
+	ucontrol->value.enumerated.item[0] = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+static int audin_chen_put_enum(struct snd_kcontrol *kcontrol,
+			          struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	struct audio *audio = snd_soc_component_get_drvdata(component);
+	unsigned int mux, val, mask, old, new;
+	int changed;
+
+	mux = snd_soc_enum_item_to_val(e, ucontrol->value.enumerated.item[0]);
+	val = FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN, mux);
+	mask = AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN;
+	changed = regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &old);
+	new = (old & ~mask) | val;
+	changed = old != new;
+
+	if (!changed)
+		return 0;
+	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+			   mask,
+			   val);
+	return 0;
+}
+
+static SOC_ENUM_SINGLE_EXT_DECL(audin_chen_enum, audin_chen_texts);
+*/
 static const struct snd_soc_dai_ops aiu_codec_ctrl_input_ops = {
 	.hw_params	= meson_codec_glue_input_hw_params,
 	.set_fmt	= meson_codec_glue_input_set_fmt,
@@ -218,63 +513,49 @@ static const struct snd_soc_dai_ops audin_codec_ctrl_input_ops = {
 	.probe = meson_codec_glue_output_dai_probe,			\
 	.remove = meson_codec_glue_output_dai_remove,			\
 */
-static SOC_ENUM_SINGLE_DECL(aiu_codec_ctrl_mux_enum, AIU_HDMI_CLK_DATA_CTRL,
-			    0, aiu_codec_ctrl_mux_texts);
-
-static const struct snd_kcontrol_new aiu_codec_ctrl_mux =
-	SOC_DAPM_ENUM_EXT("Codec Source", aiu_codec_ctrl_mux_enum,
-			  aiu_codec_ctrl_mux_get_enum,
-			  aiu_codec_ctrl_mux_put_enum);
-
-static SOC_ENUM_SINGLE_DECL(audin_codec_src_sel_mux_enum, AUDIN_SOURCE_SEL,
-			    0, audin_codec_src_sel_mux_texts);
 /*
-static SOC_ENUM_SINGLE_DECL(audin_codec_src_sel_mux_enum, SND_SOC_NOPM,
-			    0, audin_codec_src_sel_mux_texts);
+static const struct snd_kcontrol_new audio_codec_ctrl_controls[] = {
+	SOC_ENUM_EXT("Endian", audin_endian_enum, 
+		     audin_endian_get_enum, audin_endian_put_enum),
+	SOC_ENUM_EXT("Channel", audin_ch_enum, 
+		     audin_ch_get_enum, audin_ch_put_enum),
+	SOC_ENUM_EXT("DinPos", audin_dinpos_enum, 
+		     audin_dinpos_get_enum, audin_dinpos_put_enum),
+	SOC_ENUM_EXT("ByteNum", audin_bytenum_enum, 
+		     audin_bytenum_get_enum, audin_bytenum_put_enum),
+	SOC_SINGLE_BOOL_EXT("DinPos2", 0, 
+			    audin_dinpos2_get_enum, audin_dinpos2_put_enum),
+	SOC_SINGLE_BOOL_EXT("LrclkInvt", 0, 
+			    audin_lrclkinvt_get_enum, audin_lrclkinvt_put_enum),
+	SOC_SINGLE_BOOL_EXT("LrclkSkew", 0, 
+			    audin_lrclkskew_get_enum, audin_lrclkskew_put_enum),
+	SOC_SINGLE_BOOL_EXT("PosSync", 0, 
+			    audin_possync_get_enum, audin_possync_put_enum),
+	SOC_ENUM_EXT("I2SSize", audin_i2ssize_enum, 
+		     audin_i2ssize_get_enum, audin_i2ssize_put_enum),
+	SOC_ENUM_EXT("ChEn", audin_chen_enum, 
+		     audin_chen_get_enum, audin_chen_put_enum),
+};
 */
-static const struct snd_kcontrol_new audin_source_sel_mux =
-	SOC_DAPM_ENUM_EXT("Audin Src Sel", audin_codec_src_sel_mux_enum,
-			  audin_codec_ctrl_mux_get_enum,
-			  audin_codec_ctrl_mux_put_enum);
-
 static const struct snd_soc_dapm_widget audio_codec_ctrl_widgets[] = {
-	SND_SOC_DAPM_MUX("CODEC SRC", SND_SOC_NOPM, 0, 0,
-			 &aiu_codec_ctrl_mux),
-	SND_SOC_DAPM_MUX("AUDIN SRC", SND_SOC_NOPM, 0, 0,	
-			 &audin_source_sel_mux),
-
 	SND_SOC_DAPM_AIF_IN("I2S IN Playback", "Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_IN("PCM IN Playback", "Playback", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_OUTPUT("CODEC OUT Playback"),
 
-	SND_SOC_DAPM_INPUT("CODEC IN0"),
-	SND_SOC_DAPM_INPUT("CODEC IN1"),
-	SND_SOC_DAPM_INPUT("CODEC IN2"),
-	SND_SOC_DAPM_INPUT("CODEC IN3"),
-	SND_SOC_DAPM_AIF_OUT("CODEC OUT Capture", "Capture",  0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_INPUT("CODEC IN Capture"),
+	SND_SOC_DAPM_AIF_OUT("I2S OUT Capture", "Capture",  0, SND_SOC_NOPM, 0, 0),
 
 };
 
 static struct snd_soc_dai_driver audio_codec_ctrl_dai_drv[] = {
-	[CTRL_I2S] = AIU_CODEC_CTRL_INPUT("I2S IN", 2),
-	[CTRL_PCM] = AIU_CODEC_CTRL_INPUT("PCM IN", 2),
-	[CTRL_OUT] = AIU_CODEC_CTRL_OUTPUT("CODEC OUT", 2),
-	[CODEC_IN0] = AUDIN_CODEC_CTRL_INPUT( "CODEC IN0", 8),
-	[CODEC_IN1] = AUDIN_CODEC_CTRL_INPUT( "CODEC IN1", 8),
-	[CODEC_IN2] = AUDIN_CODEC_CTRL_INPUT( "CODEC IN2", 8),
-	[CODEC_IN3] = AUDIN_CODEC_CTRL_INPUT( "CODEC IN3", 8),
-	[CODEC_OUT] = AUDIN_CODEC_CTRL_OUTPUT("CODEC OUT", 8),
+	[CTRL_I2S]  = AIU_CODEC_CTRL_INPUT("I2S IN", 2),
+	[CTRL_OUT]  = AIU_CODEC_CTRL_OUTPUT("CODEC OUT", 2),
+	[CODEC_IN]  = AUDIN_CODEC_CTRL_INPUT("CODEC IN", 2),
+	[CODEC_OUT] = AUDIN_CODEC_CTRL_OUTPUT("I2S OUT", 2),
 };
 
 static const struct snd_soc_dapm_route audio_codec_ctrl_routes[] = {
-	{ "CODEC SRC", "I2S", "I2S IN Playback" },
-	{ "CODEC SRC", "PCM", "PCM IN Playback" },
-	{ "CODEC OUT Playback", NULL, "CODEC SRC" },
-	{ "AUDIN SRC", "SRC0", "CODEC IN0 Capture" },
-	{ "AUDIN SRC", "SRC1", "CODEC IN1 Capture" },
-	{ "AUDIN SRC", "SRC2", "CODEC IN2 Capture" },
-	{ "AUDIN SRC", "SRC3", "CODEC IN3 Capture" },
-	{ "CODEC OUT Capture", NULL, "AUDIN SRC" }
+	{ "CODEC OUT Playback", NULL, "I2S IN Playback" },
+	{ "I2S OUT Capture", NULL, "CODEC IN Capture" },
 };
 
 static int audio_codec_of_xlate_dai_name(struct snd_soc_component *component,
@@ -290,6 +571,8 @@ static const struct snd_soc_component_driver audio_codec_ctrl_component = {
 	.num_dapm_widgets	= ARRAY_SIZE(audio_codec_ctrl_widgets),
 	.dapm_routes		= audio_codec_ctrl_routes,
 	.num_dapm_routes	= ARRAY_SIZE(audio_codec_ctrl_routes),
+//	.controls		= audio_codec_ctrl_controls,
+//	.num_controls		= ARRAY_SIZE(audio_codec_ctrl_controls),
 	.of_xlate_dai_name	= audio_codec_of_xlate_dai_name,
 	.endianness		= 1,
 	.non_legacy_dai_naming	= 1,

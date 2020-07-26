@@ -17,12 +17,12 @@
 //#define CPU_SPDIF_DECODER	7
 
 #define CTRL_I2S		0
-#define CTRL_PCM		1
-#define CTRL_OUT		2
-#define CODEC_IN0		3
-#define CODEC_IN1		4
-#define CODEC_IN2		5
-#define CODEC_IN3		6
-#define CODEC_OUT		7
+#define CTRL_OUT		1
+#define CODEC_IN		2
+#define CODEC_OUT		3
+//#define CTRL_PCM		4
+//#define CODEC_IN1		5
+//#define CODEC_IN2		6
+//#define CODEC_IN3		7
 
 #endif /* __DT_MESON_AUDIO_H */

@@ -123,6 +123,7 @@
 				 "Line", "AUXOUTR", 
 				 "Line", "LINEOUTL",
 				 "Line", "LINEOUTR";
+				
 		audio-routing = "AUDIO_CPU CODEC OUT Playback", "AUDIO_CPU I2S IN Playback",
 				"DAI1 Playback", "AUDIO_CPU CODEC OUT Playback",
 				"DIN1", "DAI1 Playback",
@@ -151,8 +152,8 @@
 				"ADC", "ADC SoftRamp",
 				"DOUT", "ADC",
 				"DAI1 Capture", "DOUT",
- 				"AUDIO_CPU CODEC IN0 Capture", "DAI1 Capture",
-				"AUDIO_CPU CODEC OUT Capture", "AUDIO_CPU CODEC IN0 Capture";
+ 				"AUDIO_CPU CODEC IN Capture", "DAI1 Capture",
+				"AUDIO_CPU I2S OUT Capture", "AUDIO_CPU CODEC IN Capture";
 		assigned-clocks = <&clkc CLKID_MPLL2>,
 				  <&clkc CLKID_MPLL0>,
 				  <&clkc CLKID_MPLL1>;
@@ -169,8 +170,8 @@
 			sound-dai = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
 			dai-format = "i2s";
 			mclk-fs = <256>;
-			bitclock-master = <&cs4245>;
-			frame-master = <&cs4245>;
+			bitclock-master = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
+			frame-master = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
 			codec {
 				sound-dai = <&audio AUDIO_CODEC CTRL_I2S>;
 			};
@@ -188,14 +189,14 @@
 			sound-dai = <&audio AUDIO_CPU CPU_I2S_DECODER>;
 			dai-format = "i2s";
 			mclk-fs = <256>;
-			bitclock-master = <&cs4245>;
-			frame-master = <&cs4245>;
+			bitclock-master = <&audio AUDIO_CPU CPU_I2S_DECODER>;
+			frame-master = <&audio AUDIO_CPU CPU_I2S_DECODER>;
 			codec {
 				sound-dai = <&audio AUDIO_CODEC CODEC_OUT>;
 			};
 		};
 		codec_decoder: dai-link-5 {
-			sound-dai = <&audio AUDIO_CODEC CODEC_IN0>;
+			sound-dai = <&audio AUDIO_CODEC CODEC_IN>;
 			codec {
 				sound-dai = <&cs4245 CS4245_CAPTURE>;
 			};

@@ -21,7 +21,7 @@
 #include "audin-fifo.h"
 
 #define AIU_FIFO_I2S_BLOCK		256
-#define AUDIN_FIFO_I2S_BLOCK		64
+#define AUDIN_FIFO_I2S_BLOCK		256
 
 static struct snd_pcm_hardware aiu_fifo_i2s_pcm = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED |
@@ -31,7 +31,7 @@ static struct snd_pcm_hardware aiu_fifo_i2s_pcm = {
 	.formats = AUDIO_FORMATS,
 	.rate_min = 8000,
 	.rate_max = 192000,
-	.channels_min = 2,
+	.channels_min = 1, // 2
 	.channels_max = 8,
 	.period_bytes_min = AIU_FIFO_I2S_BLOCK,
 	.period_bytes_max = USHRT_MAX,
@@ -51,46 +51,18 @@ static struct snd_pcm_hardware audin_fifo_i2s_pcm = {
 	.formats = AUDIO_FORMATS,
 	.rate_min = 8000,
 	.rate_max = 48000,
-	.channels_min = 2,
+	.channels_min = 1, // 2
 	.channels_max = 8,
 	.period_bytes_min = AUDIN_FIFO_I2S_BLOCK,
-	.period_bytes_max = 32 * 1024, // 2 * 32 * 1024
-	.periods_min = 2,
-	.periods_max = 256, 	//1024,
-
-	// No real justification for this
-	.buffer_bytes_max = 64 * 1024, //4 * 64 * 1024,
-	.fifo_size = 0,
-};
-
-/*
- * This file implements the platform operations common to the playback and
- * capture frontend DAI. The logic behind this two types of fifo is very
- * similar but some difference exist.
- * These differences are handled in the respective DAI drivers
- */
-/*
-struct snd_pcm_hardware audio_fifo_i2s_pcm = {
-	.info = (SNDRV_PCM_INFO_INTERLEAVED |
-		 SNDRV_PCM_INFO_MMAP |
-		 SNDRV_PCM_INFO_MMAP_VALID |
-//		 SNDRV_PCM_INFO_BLOCK_TRANSFER |
-		 SNDRV_PCM_INFO_PAUSE),
-	.formats = AUDIO_FORMATS,
-	.rate_min = 8000,
-	.rate_max = 192000,
-	.channels_min = 2,
-	.channels_max = 8,
-	.period_bytes_min = AUDIO_FIFO_I2S_BLOCK,
 	.period_bytes_max = USHRT_MAX,
 	.periods_min = 2,
 	.periods_max = UINT_MAX,
 
 	// No real justification for this
-	.buffer_bytes_max = 1 * 1024 * 1024,
-//	.fifo_size = 0,
+	.buffer_bytes_max = 1024 * 1024,
+	.fifo_size = 256, // 0
 };
-*/
+
 static struct snd_soc_dai *audio_fifo_dai(struct snd_pcm_substream *ss)
 {
 	struct snd_soc_pcm_runtime *rtd = ss->private_data;
@@ -130,7 +102,7 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 			frames = bytes_to_frames(runtime, addr - (unsigned int)runtime->dma_addr)/2;
 		else
 			frames = bytes_to_frames(runtime, addr - (unsigned int)runtime->dma_addr);
-		printk("audio_fifo_pointer: capture frames=%ld, addr=%x\n", frames, addr);
+//		printk("audio_fifo_pointer: capture frames=%ld, addr=%x\n", frames, addr);
 		break;
 	}
 	return frames;
@@ -285,6 +257,7 @@ int audio_of_xlate_dai_name(struct snd_soc_component *component,
 		return -EINVAL;
 
 	for_each_component_dais(component, dai) {
+		printk("audio_of_xlate_dai_name: id=%d name=%s\n", id, dai->driver->name);
 		if (id == 0)
 			break;
 		id--;

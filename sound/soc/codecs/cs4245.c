@@ -766,13 +766,13 @@ static const struct snd_kcontrol_new cs4245_snd_controls[] = {
 			    CS4245_CHB_PGA_CTL, 0, 0x28, 0x30, pga_tlv), 
 
 	SOC_ENUM_EXT("LineL Gain", gain_enum,
-			   input_left_gain_get, input_left_gain_put),
+		     input_left_gain_get, input_left_gain_put),
 	SOC_ENUM_EXT("LineR Gain", gain_enum,
-			   input_right_gain_get, input_right_gain_put),
+		     input_right_gain_get, input_right_gain_put),
 	SOC_ENUM_EXT("LineL Impedance", imp_enum,
-			   input_left_impedance_get, input_left_impedance_put),
+		     input_left_impedance_get, input_left_impedance_put),
 	SOC_ENUM_EXT("LineR Impedance", imp_enum,
-			   input_right_impedance_get, input_right_impedance_put),
+		     input_right_impedance_get, input_right_impedance_put),
 #ifdef _MULTI_FX_EXT
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_CARD,
