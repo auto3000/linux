@@ -42,12 +42,13 @@ int audin_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
 		     runtime->dma_addr);
 	regmap_write(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_END_OFF,
 		     end);
+/*
 	regmap_read(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_START_OFF, &debug_val[0]);
 	regmap_write(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_PTR_OFF, 1);
 	regmap_read(audio->audin_map, fifo->mem_offset + AUDIN_FIFO_PTR_OFF, &debug_val[1]);
 	printk("audin_fifo_i2s_hw_params: AUDIN_FIFO_START=%x, AUDIN_FIFO_PTR=%x\n", 
 		debug_val[0], debug_val[1]);
-
+*/
 	/* DIN_POS: 0: 1:1-byte, 2:2-bytes 3:3-bytes 4:4-bytes? */
 	/* DIN_BYTE_NUM: 0:8bit, 1:16bit, 2:32bit (24bit) */
 	switch (params_physical_width(params)) {
@@ -199,7 +200,7 @@ static int audin_fifo_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct audio *audio = snd_soc_dai_get_drvdata(dai);
 	unsigned int rd_ptr, start;
-	unsigned int val = 0
+	unsigned int val = 0;
 //	unsigned in debug_val;
 
 	switch (cmd) {

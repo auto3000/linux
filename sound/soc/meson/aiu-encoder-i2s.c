@@ -227,7 +227,7 @@ static int aiu_encoder_i2s_hw_free(struct snd_pcm_substream *substream,
 
 static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
-	struct audio *audio = dev_get_drvdata(dai->dev);;
+	struct audio *audio = dev_get_drvdata(dai->dev);
 	unsigned int inv = fmt & SND_SOC_DAIFMT_INV_MASK;
 	unsigned int val = 0;
 	unsigned int skew;
