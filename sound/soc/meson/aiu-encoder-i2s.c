@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 BayLibre, SAS.
-// Author: Jerome Brunet <jbrunet@baylibre.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <sound/pcm_params.h>
@@ -304,7 +307,7 @@ static int aiu_encoder_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return ret;
 }
 
-static const unsigned int hw_channels[] = {1, 2, 8};
+static const unsigned int hw_channels[] = {2, 8};
 static const struct snd_pcm_hw_constraint_list hw_channel_constraints = {
 	.list = hw_channels,
 	.count = ARRAY_SIZE(hw_channels),

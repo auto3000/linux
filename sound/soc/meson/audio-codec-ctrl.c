@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 Rezzonics
-// Author: Rezzonics <rezzonics@gmail.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 Rezzonics
+* Author: Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/bitfield.h>
 #include <linux/regmap.h>
 #include <sound/pcm_params.h>
@@ -439,6 +440,7 @@ static int audin_chen_put_enum(struct snd_kcontrol *kcontrol,
 
 static SOC_ENUM_SINGLE_EXT_DECL(audin_chen_enum, audin_chen_texts);
 */
+
 static const struct snd_soc_dai_ops aiu_codec_ctrl_input_ops = {
 	.hw_params	= meson_codec_glue_input_hw_params,
 	.set_fmt	= meson_codec_glue_input_set_fmt,

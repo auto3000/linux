@@ -1,9 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0
- *
- * Copyright (c) 2020 BayLibre, SAS.
- * Author: Jerome Brunet <jbrunet@baylibre.com>
- * 	   Rezzonics <rezzonics@gmail.com>
- */
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <sound/pcm_params.h>

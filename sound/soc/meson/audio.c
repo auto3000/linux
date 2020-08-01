@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 Rezzonics
-// Author: Rezzonics <rezzonics@gmail.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 Rezzonics
+* Author: Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/module.h>
@@ -31,15 +32,14 @@ static struct snd_pcm_hardware aiu_fifo_i2s_pcm = {
 	.formats = AUDIO_FORMATS,
 	.rate_min = 8000,
 	.rate_max = 192000,
-	.channels_min = 1, // 2
+	.channels_min = 2,
 	.channels_max = 8,
 	.period_bytes_min = AIU_FIFO_I2S_BLOCK,
-	.period_bytes_max = USHRT_MAX,
+	.period_bytes_max = AIU_FIFO_I2S_BLOCK * USHRT_MAX,
 	.periods_min = 2,
 	.periods_max = UINT_MAX,
 
-	// No real justification for this
-	.buffer_bytes_max = 1 * 1024 * 1024,
+	.buffer_bytes_max = 1024 * 1024,
 };
 
 static struct snd_pcm_hardware audin_fifo_i2s_pcm = {
@@ -51,14 +51,13 @@ static struct snd_pcm_hardware audin_fifo_i2s_pcm = {
 	.formats = AUDIO_FORMATS,
 	.rate_min = 8000,
 	.rate_max = 48000,
-	.channels_min = 1, // 2
+	.channels_min = 2,
 	.channels_max = 8,
 	.period_bytes_min = AUDIN_FIFO_I2S_BLOCK,
-	.period_bytes_max = USHRT_MAX,
+	.period_bytes_max = AUDIN_FIFO_I2S_BLOCK * USHRT_MAX,
 	.periods_min = 2,
 	.periods_max = UINT_MAX,
 
-	// No real justification for this
 	.buffer_bytes_max = 1024 * 1024,
 	.fifo_size = 256, // 0
 };
@@ -97,11 +96,12 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 		regmap_read(audio->audin_map, 
 			    fifo->mem_offset + AUDIN_FIFO_PTR_OFF,
 		    	    &addr);
-//		addr &= ~0x3F;
 		if (substream->runtime->format == SNDRV_PCM_FMTBIT_S16_LE)
-			frames = bytes_to_frames(runtime, addr - (unsigned int)runtime->dma_addr)/2;
+			frames = bytes_to_frames(runtime, addr - 
+				 (unsigned int)runtime->dma_addr);
 		else
-			frames = bytes_to_frames(runtime, addr - (unsigned int)runtime->dma_addr);
+			frames = bytes_to_frames(runtime, addr - 
+				 (unsigned int)runtime->dma_addr);
 //		printk("audio_fifo_pointer: capture frames=%ld, addr=%x\n", frames, addr);
 		break;
 	}
@@ -208,8 +208,9 @@ int audio_fifo_dai_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+#if 0
 /* TODO: Remove SPDIF -------------------------------------  */
-/*
+
 static const char * const aiu_spdif_encode_sel_texts[] = {
 	"SPDIF", "I2S",
 };
@@ -225,16 +226,17 @@ static const struct snd_soc_dapm_widget aiu_cpu_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("SPDIF SRC", SND_SOC_NOPM, 0, 0,
 			 &aiu_spdif_encode_mux),
 };
-*/
+#endif
 /* ----------------------------------------------------------- */
 static const struct snd_soc_dapm_route audio_cpu_dapm_routes[] = {
 	{ "I2S Encoder Playback", NULL, "I2S FIFO Playback" },
-//	{ "SPDIF SRC", "SPDIF", "SPDIF FIFO Playback" },
-//	{ "SPDIF SRC", "I2S", "I2S FIFO Playback" },
-//	{ "SPDIF Encoder Playback", NULL, "SPDIF SRC" },
-
+#if 0
+	{ "SPDIF SRC", "SPDIF", "SPDIF FIFO Playback" },
+	{ "SPDIF SRC", "I2S", "I2S FIFO Playback" },
+	{ "SPDIF Encoder Playback", NULL, "SPDIF SRC" },
+	{ "SPDIF FIFO Capture", NULL,  "SPDIF Decoder Capture"},
+#endif
 	{ "I2S FIFO Capture", NULL,  "I2S Decoder Capture"},
-//	{ "SPDIF FIFO Capture", NULL,  "SPDIF Decoder Capture"},
 };
 
 int audio_of_xlate_dai_name(struct snd_soc_component *component,
@@ -298,8 +300,10 @@ static void audio_cpu_component_remove(struct snd_soc_component *component)
 
 static const struct snd_soc_component_driver audio_cpu_component = {
 	.name			= "AUDIO_CPU",
-//	.dapm_widgets		= audio_cpu_dapm_widgets,
-//	.num_dapm_widgets	= ARRAY_SIZE(audio_cpu_dapm_widgets),
+#if 0
+	.dapm_widgets		= audio_cpu_dapm_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(audio_cpu_dapm_widgets),
+#endif
 	.dapm_routes		= audio_cpu_dapm_routes,
 	.num_dapm_routes	= ARRAY_SIZE(audio_cpu_dapm_routes),
 	.of_xlate_dai_name	= audio_cpu_of_xlate_dai_name,
@@ -314,7 +318,7 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		.name = "I2S FIFO ENCODE",
 		.playback = {
 			.stream_name	= "I2S FIFO Playback",
-			.channels_min	= 1,
+			.channels_min	= 2,
 			.channels_max	= 8,
 			.rates		= SNDRV_PCM_RATE_CONTINUOUS,
 			.rate_min	= 5512,
@@ -326,7 +330,7 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		.probe		= audio_fifo_i2s_dai_probe,
 		.remove		= audio_fifo_dai_remove,
 	},
-/*
+#if 0
 	[CPU_SPDIF_FIFO] = {
 		.name = "SPDIF FIFO",
 		.playback = {
@@ -343,19 +347,19 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		.probe		= aiu_fifo_spdif_dai_probe,
 		.remove		= aiu_fifo_dai_remove,
 	},
-*/
+#endif
 	[CPU_I2S_ENCODER] = {
 		.name = "I2S Encoder",
 		.playback = {
 			.stream_name = "I2S Encoder Playback",
-			.channels_min = 1,
+			.channels_min = 2,
 			.channels_max = 8,
 			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = AUDIO_FORMATS,
 		},
 		.ops = &aiu_encoder_i2s_dai_ops,
 	},
-/*
+#if 0
 	[CPU_SPDIF_ENCODER] = {
 		.name = "SPDIF Encoder",
 		.playback = {
@@ -373,12 +377,12 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		},
 		.ops = &aiu_encoder_spdif_dai_ops,
 	},
-*/
+#endif
 	[CPU_I2S_FIFO_DECODE] = {
 		.name = "I2S FIFO DECODE",
 		.capture = {
 			.stream_name	= "I2S FIFO Capture",
-			.channels_min	= 1,
+			.channels_min	= 2,
 			.channels_max	= 8,
 			.rates		= SNDRV_PCM_RATE_CONTINUOUS,
 			.rate_min	= 5512,
@@ -390,7 +394,7 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		.probe		= audio_fifo_i2s_dai_probe,
 		.remove		= audio_fifo_dai_remove,
 	},
-/*
+#if 0
 	[CPU_SPDIF_FIFO_DECODE] = {
 		.name = "SPDIF FIFO DECODE",
 		.capture = {
@@ -407,19 +411,19 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		.probe		= audin_fifo_spdif_dai_probe,
 		.remove		= audin_fifo_dai_remove,
 	},
-*/
+#endif
 	[CPU_I2S_DECODER] = {
 		.name = "I2S Decoder",
 		.capture = {
 			.stream_name = "I2S Decoder Capture",
-			.channels_min = 1,
+			.channels_min = 2,
 			.channels_max = 8,
 			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = AUDIO_FORMATS,
 		},
 		.ops = &audin_decoder_i2s_dai_ops,
 	},
-/*
+#if 0
 	[CPU_SPDIF_DECODER] = {
 		.name = "SPDIF Decoder",
 		.capture = {
@@ -437,7 +441,7 @@ static struct snd_soc_dai_driver audio_cpu_dai_drv[] = {
 		},
 		.ops = &audin_decoder_spdif_dai_ops,
 	}
-*/
+#endif
 };
 
 static const struct regmap_config aiu_regmap_cfg = {
@@ -493,13 +497,13 @@ static const char * const audin_ids[] = {
 	[ADC] 		= "adc_clk",
 };
 
-/*
+#if 0
 const char * const aiu_spdif_ids[] = {
 	[PCLK]	= "spdif_pclk",
 	[AOCLK]	= "spdif_aoclk",
 	[MCLK]	= "spdif_mclk_sel"
 };
-*/
+#endif
 
 static int audio_clk_get(struct device *dev)
 {
@@ -643,12 +647,19 @@ static int audio_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 		}
 	}
-/*
+#if 0
 	audio->spdif.irq = platform_get_irq_byname(pdev, "spdif");
 	if (audio->spdif.irq < 0) {
 		return audio->spdif.irq;
 	}
-*/
+
+	audio->audin.irq = of_irq_get(dev->of_node, 0);
+	if (audio->audin.irq <= 0) {
+		dev_err(dev, "failed to get irq: %d\n", audio->audin.irq);
+		return audio->audin.irq;
+	}
+#endif
+
 	audio->audin.irq = platform_get_irq_byname(pdev, "audin");
 	if (audio->audin.irq < 0) {
 		return audio->audin.irq;

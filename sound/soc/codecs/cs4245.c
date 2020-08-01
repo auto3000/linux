@@ -1,15 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0-only
 /*
- * cs4245.c -- CS4245 ALSA SoC audio driver
- *
- * Author: Rezzonics <rezzonics@gmail.com>
- *
- * cs4245.c -- CS4245 ALSA SoC audio driver
- *
- * Notes:
- *
- * Based on cs4265.c ALSA SoC audio driver
- */
+* SPDX-License-Identifier: GPL-2.0-only
+* cs4245.c -- CS4245 ALSA SoC audio driver
+*
+* Author: Rezzonics <rezzonics@gmail.com>
+*
+* cs4245.c -- CS4245 ALSA SoC audio driver
+*
+* Notes:
+*
+* Based on cs4265.c ALSA SoC audio driver
+*/
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -665,10 +665,10 @@ static const struct reg_default cs4245_reg_defaults[] = {
 	{ CS4245_DAC_CTL, 	  0x08 },
 	{ CS4245_ADC_CTL, 	  0x08 },
 	{ CS4245_MCLK_FREQ, 	  0x00 },
-	{ CS4245_SIG_SEL, 	  0x20 },
+	{ CS4245_SIG_SEL, 	  0x40 },
 	{ CS4245_CHB_PGA_CTL, 	  0x00 },
 	{ CS4245_CHA_PGA_CTL, 	  0x00 },
-	{ CS4245_ADC_CTL2, 	  0x1C },
+	{ CS4245_ADC_CTL2, 	  0x19 },
 	{ CS4245_DAC_CHA_VOL, 	  0x00 },
 	{ CS4245_DAC_CHB_VOL, 	  0x00 },
 	{ CS4245_DAC_CTL2, 	  0xC0 },
@@ -753,7 +753,7 @@ static const struct snd_kcontrol_new cs4245_snd_controls[] = {
 	// Playback ----------------------------------------------------
 
 	/* DAC VOL scale 0 to -127.5dB in 0.5dB steps => 0 to 255 */
-	SOC_DOUBLE_R_TLV("Master Playback Volume", CS4245_DAC_CHA_VOL,
+	SOC_DOUBLE_R_TLV("DAC Playback Volume", CS4245_DAC_CHA_VOL,
 		         CS4245_DAC_CHB_VOL, 0, 0xFF, 1, dac_tlv),
 	//--------------------------------------------------------------
 	SOC_SINGLE_BOOL_EXT("HP Playback Enable", 0, 
@@ -1174,44 +1174,7 @@ static struct snd_soc_dai_driver cs4245_dai[] = {
 		.ops = &cs4245_ops,
 	},
 };
-/*
-int cs4245_of_xlate_dai_name(struct snd_soc_component *component,
-			     struct of_phandle_args *args,
-			     const char **dai_name,
-			     unsigned int component_id)
-{
-	struct snd_soc_dai *dai;
-	int id;
 
-	if (args->args_count != 2)
-		return -EINVAL;
-
-	if (args->args[0] != component_id)
-		return -EINVAL;
-
-	id = args->args[1];
-
-	if (id < 0 || id >= component->num_dai)
-		return -EINVAL;
-
-	for_each_component_dais(component, dai) {
-		if (id == 0)
-			break;
-		id--;
-	}
-
-	*dai_name = dai->driver->name;
-
-	return 0;
-}
-
-static int codec_of_xlate_dai_name(struct snd_soc_component *component,
-				   struct of_phandle_args *args,
-				   const char **dai_name)
-{
-	return cs4245_of_xlate_dai_name(component, args, dai_name, CODEC_CS4245);
-}
-*/
 static const struct snd_soc_component_driver soc_component_cs4245 = {
 	.name			= "cs4245 codec",
 	.set_bias_level		= cs4245_set_bias_level,
@@ -1221,7 +1184,6 @@ static const struct snd_soc_component_driver soc_component_cs4245 = {
 	.num_dapm_widgets	= ARRAY_SIZE(cs4245_dapm_widgets),
 	.dapm_routes		= cs4245_audio_map,
 	.num_dapm_routes	= ARRAY_SIZE(cs4245_audio_map),
-//	.of_xlate_dai_name	= codec_of_xlate_dai_name,
 	.idle_bias_on		= 1,
 	.use_pmdown_time	= 1,
 	.endianness		= 1,
@@ -1283,13 +1245,28 @@ static int cs4245_i2c_probe(struct i2c_client *i2c_client,
 	}
 	dev_info(&i2c_client->dev, "CS4245 Version %x\n", reg & CS4245_REV_ID_MASK);
 
+	/* Mute DAC */
+	regmap_update_bits(cs4245->regmap, CS4245_DAC_CTL,
+		CS4245_DAC_CTL_MUTE,
+		CS4245_DAC_CTL_MUTE);
+	/* Power-on MIC, ADC, DAC, Codec */
 	regmap_write(cs4245->regmap, CS4245_PWRCTL, 0x0F);
+	/* Select DAC output on AUXOUT */
+	regmap_update_bits(cs4245->regmap, CS4245_SIG_SEL,
+		3 << 5, 1);
+	/* Select LINEIN4 on Analog Input Selection */
+	regmap_update_bits(cs4245->regmap, CS4245_ADC_CTL2,
+		7 << 0, 4);
 
 	ret = devm_snd_soc_register_component(&i2c_client->dev,
 			&soc_component_cs4245, cs4245_dai,
 			ARRAY_SIZE(cs4245_dai));
 	if (ret == 0)
 		ret = multi_fx_init(i2c_client);
+	/* UnMute DAC */
+	regmap_update_bits(cs4245->regmap, CS4245_DAC_CTL,
+		CS4245_DAC_CTL_MUTE,
+		0);
 	return ret;
 }
 

@@ -1,9 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2020 BayLibre, SAS.
- * Author: Jerome Brunet <jbrunet@baylibre.com>
- */
-
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #ifndef _MESON_SND_CARD_H
 #define _MESON_SND_CARD_H
 
@@ -27,7 +29,8 @@ struct meson_card {
 };
 
 unsigned int meson_card_parse_daifmt(struct device_node *node,
-				     struct device_node *cpu_node);
+				     struct device_node *cpu_node,
+				     struct device_node *codec_node);
 
 int meson_card_i2s_set_sysclk(struct snd_pcm_substream *substream,
 			      struct snd_pcm_hw_params *params,

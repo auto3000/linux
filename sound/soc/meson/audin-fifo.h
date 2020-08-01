@@ -1,11 +1,11 @@
-/* SPDX-License-Identifier: (GPL-2.0 OR MIT)
- *
- * Copyright (c) 2020 Rezzonics
- * Copyright (c) 2018 BayLibre, SAS.
- * Author: Jerome Brunet <jbrunet@baylibre.com>
- * Author: Rezzonics <rezzonics@gmail.com>
- */
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #ifndef _MESON_AUDIN_FIFO_H
 #define _MESON_AUDIN_FIFO_H
 

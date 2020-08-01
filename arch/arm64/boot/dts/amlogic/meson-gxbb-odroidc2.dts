@@ -169,9 +169,9 @@
 		cpu_encoder: dai-link-1 {
 			sound-dai = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
 			dai-format = "i2s";
+			amlogic,bitclock-master = <&audio AUDIO_CODEC CTRL_I2S>;
+			amlogic,frame-master = <&audio AUDIO_CODEC CTRL_I2S>;
 			mclk-fs = <256>;
-			bitclock-master = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
-			frame-master = <&audio AUDIO_CPU CPU_I2S_ENCODER>;
 			codec {
 				sound-dai = <&audio AUDIO_CODEC CTRL_I2S>;
 			};
@@ -188,9 +188,9 @@
 		cpu_decoder: dai-link-4 {
 			sound-dai = <&audio AUDIO_CPU CPU_I2S_DECODER>;
 			dai-format = "i2s";
+			amlogic,bitclock-master = <&audio AUDIO_CODEC CODEC_OUT>;
+			amlogic,frame-master = <&audio AUDIO_CODEC CODEC_OUT>;
 			mclk-fs = <256>;
-			bitclock-master = <&audio AUDIO_CPU CPU_I2S_DECODER>;
-			frame-master = <&audio AUDIO_CPU CPU_I2S_DECODER>;
 			codec {
 				sound-dai = <&audio AUDIO_CODEC CODEC_OUT>;
 			};
@@ -211,8 +211,8 @@
 		compatible = "cirrus,cs4245";
 		#sound-dai-cells = <1>;
 		reg = <0x4c>;
-		bitclock-master = <&cs4245>;
-		frame-master = <&cs4245>;
+//		bitclock-master = <&cs4245>;
+//		frame-master = <&cs4245>;
 		reset-gpios = <&gpio GPIOX_21 GPIO_ACTIVE_LOW>;
 		reset-delay-us = <100000>;
 		reset-active-low;

@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 BayLibre, SAS.
-// Author: Jerome Brunet <jbrunet@baylibre.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <sound/pcm_params.h>
@@ -129,11 +132,13 @@ static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 			  FIELD_PREP(AIU_HDMI_CLK_DATA_CTRL_DATA_SEL, 2));
 
 	/* Set AUDIN_I2SIN_CTRL register with I2SIN_EN = 0 */
+
 	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
 			   AUDIN_I2SIN_CTRL_I2SIN_EN |
 			   AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN |
 			   AUDIN_I2SIN_CTRL_I2SIN_SIZE,
 			   desc);
+
 /*
 	regmap_read(audio->audin_map, AUDIN_I2SIN_CTRL, &val);
 	regmap_read(audio->aiu_map, AIU_I2S_SOURCE_DESC, &desc_aiu);
@@ -381,7 +386,7 @@ static int audin_decoder_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return ret;
 }
 
-static const unsigned int hw_channels[] = {1, 2, 8};
+static const unsigned int hw_channels[] = {2, 8};
 static const struct snd_pcm_hw_constraint_list hw_channel_constraints = {
 	.list = hw_channels,
 	.count = ARRAY_SIZE(hw_channels),

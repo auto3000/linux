@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: (GPL-2.0 OR MIT)
-//
-// Copyright (c) 2020 BayLibre, SAS.
-// Author: Jerome Brunet <jbrunet@baylibre.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <sound/soc.h>
@@ -60,7 +63,7 @@ static int gx_card_parse_i2s(struct snd_soc_card *card,
 
 	/* Setup i2s link */
 	link->ops = &gx_card_i2s_be_ops;
-	link->dai_fmt = meson_card_parse_daifmt(node, link->cpus->of_node);
+	link->dai_fmt = meson_card_parse_daifmt(node, link->cpus->of_node, link->codecs->of_node);
 
 	of_property_read_u32(node, "mclk-fs", &be->mclk_fs);
 

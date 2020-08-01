@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 BayLibre, SAS.
-// Author: Jerome Brunet <jbrunet@baylibre.com>
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <sound/soc.h>
@@ -111,7 +114,8 @@ static int meson_card_set_link_name(struct snd_soc_card *card,
 
 
 unsigned int meson_card_parse_daifmt(struct device_node *node,
-				     struct device_node *cpu_node)
+				     struct device_node *cpu_node,
+				     struct device_node *codec_node)
 {
 	struct device_node *bitclkmaster = NULL;
 	struct device_node *framemaster = NULL;
@@ -120,6 +124,9 @@ unsigned int meson_card_parse_daifmt(struct device_node *node,
 	daifmt = snd_soc_of_parse_daifmt(node, DT_PREFIX,
 					 &bitclkmaster, &framemaster);
 	daifmt &= ~SND_SOC_DAIFMT_MASTER_MASK;
+
+	printk("meson_card_parse_daifmt: bitclkmst=%pr, frmmst=%pr, cpu=%pr, codec=%pr", 
+		bitclkmaster, framemaster, cpu_node, codec_node);
 
 	/* If no master is provided, default to cpu master */
 	if (!bitclkmaster || bitclkmaster == cpu_node) {

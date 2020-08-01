@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: (GPL-2.0 OR MIT) */
-/*
- * Copyright (c) 2020 Rezzonics
- * Author: Rezzonics <rezzonics@gmail.com>
- */
+/* 
+* SPDX-License-Identifier: (GPL-2.0 OR MIT)
+*
+* Copyright (c) 2020 Rezzonics
+* Author: Rezzonics <rezzonics@gmail.com>
+*/
 
 #ifndef _MESON_AUDIO_H
 #define _MESON_AUDIO_H
@@ -337,6 +338,10 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 #define AUDIN_FIFO_CTRL1_DINBYTENUM		GENMASK(3, 2)
 #define AUDIN_FIFO_CTRL1_DESTSEL		GENMASK(5, 4)
 #define AUDIN_FIFO_CTRL1_DINPOS2		BIT(7)
+
+#define AUDIN_INT_CTRL_FIFO0_ADDR		BIT(1)
+
+#define AUDIN_FIFO_INT_FIFO0_ADDR		BIT(1)
 
 #define AUDIN_DECODE_FMT_NOSPDIF		BIT(0)  	//0x0000_0001 0001
 #define AUDIN_DECODE_FMT_BIT_WIDTH		GENMASK(3, 2)	//0x0000_000C 1100 

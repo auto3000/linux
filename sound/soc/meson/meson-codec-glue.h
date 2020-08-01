@@ -1,9 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0
- *
- * Copyright (c) 2018 Baylibre SAS.
- * Author: Jerome Brunet <jbrunet@baylibre.com>
- */
-
+/*
+* SPDX-License-Identifier: GPL-2.0
+*
+* Copyright (c) 2020 BayLibre, SAS.
+*		2020 Rezzonics
+* Author: Jerome Brunet <jbrunet@baylibre.com>
+*	  Rezzonics <rezzonics@gmail.com>
+*/
 #ifndef _MESON_CODEC_GLUE_H
 #define _MESON_CODEC_GLUE_H
 
