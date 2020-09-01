@@ -125,8 +125,8 @@ unsigned int meson_card_parse_daifmt(struct device_node *node,
 					 &bitclkmaster, &framemaster);
 	daifmt &= ~SND_SOC_DAIFMT_MASTER_MASK;
 
-	printk("meson_card_parse_daifmt: bitclkmst=%pr, frmmst=%pr, cpu=%pr, codec=%pr", 
-		bitclkmaster, framemaster, cpu_node, codec_node);
+//	printk("meson_card_parse_daifmt: bitclkmst=%pr, frmmst=%pr, cpu=%pr, codec=%pr", 
+//		bitclkmaster, framemaster, cpu_node, codec_node);
 
 	/* If no master is provided, default to cpu master */
 	if (!bitclkmaster || bitclkmaster == cpu_node) {
@@ -136,8 +136,8 @@ unsigned int meson_card_parse_daifmt(struct device_node *node,
 		daifmt |= (!framemaster || framemaster == cpu_node) ?
 			SND_SOC_DAIFMT_CBM_CFS : SND_SOC_DAIFMT_CBM_CFM;
 	}
-	printk("meson_card_parse_daifmt: BS==cpu_node=%d, daifmt=%x BM_FM=1, BS_FS=4", 
-		bitclkmaster == cpu_node, (daifmt & SND_SOC_DAIFMT_MASTER_MASK)>>12);
+//	printk("meson_card_parse_daifmt: BS==cpu_node=%d, daifmt=%x BM_FM=1, BS_FS=4", 
+//		bitclkmaster == cpu_node, (daifmt & SND_SOC_DAIFMT_MASTER_MASK)>>12);
 	of_node_put(bitclkmaster);
 	of_node_put(framemaster);
 

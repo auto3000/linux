@@ -9,6 +9,9 @@
 #define _MESON_AUDIO_H
 #define REGMAP_ALLOW_WRITE_DEBUGFS
 
+//#define DEBUG_AUDIN
+//#define DEBUG_AIU
+
 struct clk;
 struct clk_bulk_data;
 struct device;
@@ -102,6 +105,7 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 #define AIU_958_CHSTAT_L0		0x020
 #define AIU_958_CHSTAT_L1		0x024
 #define AIU_958_CTRL			0x028
+#define AIU_I2S_MUTE_SWAP		0x030
 #define AIU_I2S_SOURCE_DESC		0x034
 #define AIU_I2S_DAC_CFG			0x040
 #define AIU_I2S_SYNC			0x044
@@ -128,6 +132,8 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 #define AIU_MEM_IEC958_BUF_CNTL		0x1fc
 
 /* AIU register masks */
+#define AIU_I2S_MUTE_SWAP_01		BIT(0)
+
 #define AIU_I2S_SOURCE_DESC_MODE_8CH	BIT(0)
 #define AIU_I2S_SOURCE_DESC_MSB_INV	BIT(1)
 #define AIU_I2S_SOURCE_DESC_MSB_EXTEND	BIT(2)

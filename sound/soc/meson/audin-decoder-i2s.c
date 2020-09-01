@@ -60,7 +60,7 @@ static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 				        struct snd_pcm_hw_params *params)
 {
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-	unsigned int desc_aiu = AIU_I2S_SOURCE_DESC_MODE_SPLIT | AIU_I2S_SOURCE_DESC_MSB_INV;
+	unsigned int desc_aiu = AIU_I2S_SOURCE_DESC_MODE_SPLIT;
 	unsigned int desc_adc = AIU_MIX_ADCCFG_LRCLK_INVERT | AIU_MIX_ADCCFG_ADC_SEL;
 	unsigned int desc = 0;
 	unsigned int val = 0;
@@ -70,22 +70,27 @@ static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 	regmap_write(audio->aiu_map, AIU_RST_SOFT, AIU_RST_SOFT_I2S_FAST);
 	regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
 
+	regmap_update_bits(audio->aiu_map, AIU_I2S_SOURCE_DESC,
+			   AIU_I2S_SOURCE_DESC_MODE_SPLIT ,
+			   desc_aiu);
+
 	desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_LRCLK_SKEW, 1);
 
 	/* AUDIN_I2SIN_CTRL_I2SIN_SIZE: 0=16-bit, 1=18-bits, 2=20-bits, 3=24-bits */
 	switch (params_physical_width(params)) {
 	case 16: 
+#ifndef DEBUG_AUDIN
 		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 0);
-		desc_aiu |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 2);
+#endif
+		desc_aiu |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 2) |
+			    FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7);
 		desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_ADC_SIZE, 0);
 		break;
 	case 24:
-		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 3);
-		desc_aiu |= AIU_I2S_SOURCE_DESC_MODE_24BIT;
-		desc_adc |= FIELD_PREP(AIU_MIX_ADCCFG_ADC_SIZE, 3);
-		break;
 	case 32:
+#ifndef DEBUG_AUDIN
 		desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_SIZE, 3);
+#endif
 		desc_aiu |= FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7) |
 			    AIU_I2S_SOURCE_DESC_MODE_24BIT |
 			    AIU_I2S_SOURCE_DESC_MODE_32BIT;
@@ -106,8 +111,9 @@ static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 	default:
 		return -EINVAL;
 	}
+#ifndef DEBUG_AUDIN
 	desc |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN, ch);
-
+#endif
 	regmap_update_bits(audio->aiu_map, AIU_MIX_ADCCFG,
 			   AIU_MIX_ADCCFG_LRCLK_INVERT |
 			   AIU_MIX_ADCCFG_LRCLK_SKEW |
@@ -134,9 +140,11 @@ static int audin_decoder_i2s_setup_desc(struct snd_soc_component *component,
 	/* Set AUDIN_I2SIN_CTRL register with I2SIN_EN = 0 */
 
 	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
-			   AUDIN_I2SIN_CTRL_I2SIN_EN |
+#ifndef DEBUG_AUDIN
 			   AUDIN_I2SIN_CTRL_I2SIN_CHAN_EN |
-			   AUDIN_I2SIN_CTRL_I2SIN_SIZE,
+			   AUDIN_I2SIN_CTRL_I2SIN_SIZE |
+#endif
+			   AUDIN_I2SIN_CTRL_I2SIN_EN, 
 			   desc);
 
 /*
@@ -296,16 +304,17 @@ static int audin_decoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 			     AUDIN_I2SIN_CTRL_I2SIN_DIR;
 		adc_val |= AIU_MIX_ADCCFG_ADC_SEL;
 		aiu_val |= AIU_CLK_CTRL_CLK_SRC;
-		printk("audin_decoder_i2s_set_fmt: CPU Master / Codec Slave\n");
+//		printk("audin_decoder_i2s_set_fmt: CPU Master / Codec Slave\n");
 		break;
 	/* CPU Slave / Codec Master */
 	case SND_SOC_DAIFMT_CBM_CFM:
-		printk("audin_decoder_i2s_set_fmt: CPU Slave / Codec Master (!!)\n");
+//		printk("audin_decoder_i2s_set_fmt: CPU Slave / Codec Master (!!)\n");
 		break;
 	default:
 		return -EINVAL;
 	}
-	
+#ifndef DEBUG_AUDIN
+/*	
 	if (inv == SND_SOC_DAIFMT_NB_IF ||
 	    inv == SND_SOC_DAIFMT_IB_IF) {
 		aiu_val |= AIU_CLK_CTRL_LRCLK_INVERT;
@@ -317,33 +326,41 @@ static int audin_decoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		aiu_val |= AIU_CLK_CTRL_AOCLK_INVERT;
 		adc_val |= AIU_MIX_ADCCFG_AOCLK_INVERT;
 	}
+*/
 	audin_val |= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
 		     AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC;
-	/* Signal skew */
+#endif
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		/* Invert sample clock for i2s */
+#ifndef DEBUG_AUDIN
 		audin_val ^= AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT;
-		aiu_val ^= AIU_CLK_CTRL_LRCLK_INVERT;
+//		aiu_val |= AIU_CLK_CTRL_LRCLK_INVERT;
+#endif
 		adc_val ^= AIU_MIX_ADCCFG_LRCLK_INVERT;
 		// 0:Left justify, 1:right justified, 2:I2S, 3: DSP
 //		desc |= FIELD_PREP(AUDIN_DECODE_FMT_FMT_SELECT, 2);  
-		skew = 1;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
-		skew = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
+	aiu_val |= AIU_CLK_CTRL_LRCLK_INVERT;
+	aiu_val |= AIU_CLK_CTRL_AOCLK_INVERT;
+	skew = 1;
 
+#ifndef DEBUG_AUDIN
 	audin_val |= FIELD_PREP(AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW, skew);
-	aiu_val |= FIELD_PREP(AIU_CLK_CTRL_LRCLK_SKEW, skew);
+#endif
+	aiu_val |= FIELD_PREP(AIU_CLK_CTRL_LRCLK_SKEW, 0);
 	adc_val |= FIELD_PREP(AIU_MIX_ADCCFG_LRCLK_SKEW, skew);
 	regmap_update_bits(audio->audin_map, AUDIN_I2SIN_CTRL,
+#ifndef DEBUG_AUDIN
 			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_INVT |
 			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SKEW |
 			   AUDIN_I2SIN_CTRL_I2SIN_POS_SYNC |
+#endif
 			   AUDIN_I2SIN_CTRL_I2SIN_LRCLK_SEL |
 			   AUDIN_I2SIN_CTRL_I2SIN_CLK_SEL |
 			   AUDIN_I2SIN_CTRL_I2SIN_DIR ,

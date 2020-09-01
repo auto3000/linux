@@ -57,22 +57,25 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 {
 	/* Always operate in split (classic interleaved) mode */
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT; // | AIU_I2S_SOURCE_DESC_MSB_INV;
+	unsigned int desc = AIU_I2S_SOURCE_DESC_MODE_SPLIT;
 	unsigned int val = 0;
 
 	/* Reset required to update the pipeline */
 	regmap_write(audio->aiu_map, AIU_RST_SOFT, AIU_RST_SOFT_I2S_FAST);
 	regmap_read(audio->aiu_map, AIU_I2S_SYNC, &val);
 
+	regmap_update_bits(audio->aiu_map, AIU_I2S_SOURCE_DESC,
+			   AIU_I2S_SOURCE_DESC_MODE_SPLIT ,
+			   desc);
+#ifndef DEBUG_AIU
 	switch (params_physical_width(params)) {
 	case 16: 
-		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 2);
+		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_MSB_POS, 2) |
+			FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7);
 		break;
 	case 24:
-		desc |= AIU_I2S_SOURCE_DESC_MODE_24BIT;
-		break;
 	case 32:
-		desc |= FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7) |
+		desc |=	FIELD_PREP(AIU_I2S_SOURCE_DESC_SHIFT_BITS, 7) |
 			AIU_I2S_SOURCE_DESC_MODE_24BIT |
 			AIU_I2S_SOURCE_DESC_MODE_32BIT;
 		break;
@@ -89,14 +92,15 @@ static int aiu_encoder_i2s_setup_desc(struct snd_soc_component *component,
 	default:
 		return -EINVAL;
 	}
-
+#endif
 	regmap_update_bits(audio->aiu_map, AIU_I2S_SOURCE_DESC,
+#ifndef DEBUG_AIU
 			   AIU_I2S_SOURCE_DESC_MODE_8CH |
-			   AIU_I2S_SOURCE_DESC_MSB_INV |
 			   AIU_I2S_SOURCE_DESC_MSB_POS |
 			   AIU_I2S_SOURCE_DESC_MODE_24BIT |
 			   AIU_I2S_SOURCE_DESC_SHIFT_BITS |
 			   AIU_I2S_SOURCE_DESC_MODE_32BIT |
+#endif
 			   AIU_I2S_SOURCE_DESC_MODE_SPLIT ,
 			   desc);
 
@@ -233,7 +237,6 @@ static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	struct audio *audio = dev_get_drvdata(dai->dev);
 	unsigned int inv = fmt & SND_SOC_DAIFMT_INV_MASK;
 	unsigned int val = 0;
-	unsigned int skew;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	/* CPU Master / Codec Slave */
@@ -247,40 +250,38 @@ static int aiu_encoder_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
-	/* Only CPU Master / Codec Slave supported ATM */
+#ifndef DEBUG_AIU
 /*
-	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) != SND_SOC_DAIFMT_CBS_CFS)
-		return -EINVAL;
 	if (inv == SND_SOC_DAIFMT_NB_IF ||
 	    inv == SND_SOC_DAIFMT_IB_IF)
 		val |= AIU_CLK_CTRL_LRCLK_INVERT;
-*/
 
 	if (inv == SND_SOC_DAIFMT_IB_NF ||
 	    inv == SND_SOC_DAIFMT_IB_IF)
 		val |= AIU_CLK_CTRL_AOCLK_INVERT;
 	val |= AIU_CLK_CTRL_LRCLK_INVERT;
-
-	/* Signal skew */
+*/
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		/* Invert sample clock for i2s */
-		val ^= AIU_CLK_CTRL_LRCLK_INVERT;
-		skew = 1;
+//		val ^= AIU_CLK_CTRL_LRCLK_INVERT;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
-		skew = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	val |= FIELD_PREP(AIU_CLK_CTRL_LRCLK_SKEW, skew);
+	val |= AIU_CLK_CTRL_LRCLK_INVERT;
+	val |= AIU_CLK_CTRL_AOCLK_INVERT;
+	/* Skew = 0 */
+	val |= FIELD_PREP(AIU_CLK_CTRL_LRCLK_SKEW, 0);
 	regmap_update_bits(audio->aiu_map, AIU_CLK_CTRL,
 			   AIU_CLK_CTRL_LRCLK_INVERT |
 			   AIU_CLK_CTRL_AOCLK_INVERT |
 			   AIU_CLK_CTRL_LRCLK_SKEW,
 			   val);
+#endif
 /*
 	regmap_read(audio->aiu_map, AIU_CLK_CTRL, &val);
 	printk("aiu_encoder_i2s_set_fmt: AIU_CLK_CTRL=%x\n", val);

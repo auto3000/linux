@@ -75,6 +75,8 @@ int aiu_fifo_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	/* Setup the irq periodicity */
 	val = params_period_bytes(params) / fifo->fifo_block;
+//	printk("aiu_fifo_hw_params: period_bytes=%d, fifo_block=%d\n", 
+//		params_period_bytes(params), fifo->fifo_block);
 	val = FIELD_PREP(AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);
 	regmap_update_bits(audio->aiu_map, AIU_MEM_I2S_MASKS,
 			  AIU_MEM_I2S_MASKS_IRQ_BLOCK, val);

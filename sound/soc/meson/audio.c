@@ -22,7 +22,7 @@
 #include "audin-fifo.h"
 
 #define AIU_FIFO_I2S_BLOCK		256
-#define AUDIN_FIFO_I2S_BLOCK		256
+#define AUDIN_FIFO_I2S_BLOCK		16384
 
 static struct snd_pcm_hardware aiu_fifo_i2s_pcm = {
 	.info = (SNDRV_PCM_INFO_INTERLEAVED |
@@ -35,10 +35,9 @@ static struct snd_pcm_hardware aiu_fifo_i2s_pcm = {
 	.channels_min = 2,
 	.channels_max = 8,
 	.period_bytes_min = AIU_FIFO_I2S_BLOCK,
-	.period_bytes_max = AIU_FIFO_I2S_BLOCK * USHRT_MAX,
+	.period_bytes_max = AIU_FIFO_I2S_BLOCK * 256,
 	.periods_min = 2,
-	.periods_max = UINT_MAX,
-
+	.periods_max = 256,
 	.buffer_bytes_max = 1024 * 1024,
 };
 
@@ -54,12 +53,11 @@ static struct snd_pcm_hardware audin_fifo_i2s_pcm = {
 	.channels_min = 2,
 	.channels_max = 8,
 	.period_bytes_min = AUDIN_FIFO_I2S_BLOCK,
-	.period_bytes_max = AUDIN_FIFO_I2S_BLOCK * USHRT_MAX,
+	.period_bytes_max = AUDIN_FIFO_I2S_BLOCK * 256,
 	.periods_min = 2,
-	.periods_max = UINT_MAX,
-
-	.buffer_bytes_max = 1024 * 1024,
-	.fifo_size = 256, // 0
+	.periods_max = 256,
+	.buffer_bytes_max = 8192 * 8192,
+	.fifo_size = 0,
 };
 
 static struct snd_soc_dai *audio_fifo_dai(struct snd_pcm_substream *ss)
@@ -76,7 +74,7 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 	struct audio_fifo *fifo;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct audio *audio = snd_soc_component_get_drvdata(component);
-	unsigned int addr;
+	unsigned int addr, buffer_size;
 	snd_pcm_uframes_t frames = 0;
 	
 	switch(substream->stream) {
@@ -96,13 +94,23 @@ snd_pcm_uframes_t audio_fifo_pointer(struct snd_soc_component *component,
 		regmap_read(audio->audin_map, 
 			    fifo->mem_offset + AUDIN_FIFO_PTR_OFF,
 		    	    &addr);
-		if (substream->runtime->format == SNDRV_PCM_FMTBIT_S16_LE)
-			frames = bytes_to_frames(runtime, addr - 
-				 (unsigned int)runtime->dma_addr);
-		else
-			frames = bytes_to_frames(runtime, addr - 
-				 (unsigned int)runtime->dma_addr);
-//		printk("audio_fifo_pointer: capture frames=%ld, addr=%x\n", frames, addr);
+		if (runtime->format == SNDRV_PCM_FORMAT_S16_LE) {
+			buffer_size = addr - (unsigned int)runtime->dma_addr;
+			if (buffer_size == runtime->dma_bytes) 
+				buffer_size = runtime->dma_bytes - 8;
+			frames = bytes_to_frames(runtime, buffer_size);
+//			printk("16bits: frames=%ld, format=%d addr-runtime->dma_addr=%d\n",
+//				frames, runtime->format, addr - (unsigned int)runtime->dma_addr);
+		}
+		else {
+			buffer_size = addr - (unsigned int)runtime->dma_addr;
+			/* For a period size=48000, buffer_size can be 384 or 376 */
+			if (buffer_size <= 384) 
+				buffer_size = runtime->dma_bytes - buffer_size - 8;
+			frames = bytes_to_frames(runtime, buffer_size);
+//			printk("32bits: frames=%ld, format=%d addr-runtime->dma_addr=%d\n",
+//				frames, runtime->format, addr - (unsigned int)runtime->dma_addr);
+		}
 		break;
 	}
 	return frames;
@@ -183,8 +191,8 @@ int audio_fifo_i2s_dai_probe(struct snd_soc_dai *dai)
 		fifo->mem_offset = AUDIN_FIFO0_START;
 		fifo->fifo_block = AUDIN_FIFO_I2S_BLOCK;
 		fifo->pclk = audio->aiu.clks[PCLK].clk;
-		fifo->irq = audio->aiu.irq;
-		fifo->irq_name = audio->aiu.irq_name;
+		fifo->irq = audio->audin.irq;
+		fifo->irq_name = audio->audin.irq_name;
 		fifo->pcm = &audin_fifo_i2s_pcm;
 	}
 	else if (dai->playback_widget) {
